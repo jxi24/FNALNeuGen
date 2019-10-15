@@ -10,11 +10,23 @@ from numpy.distutils.core import setup, Extension
 # It ensures open() defaults to text mode with universal newlines,
 # and accepts an argument to specify the text encoding
 
-EXT1 = Extension(name='xsec', sources=['nuchic/xsec.pyf',
-                                       'nuchic/currents_opt_v1.f90',
-                                       'nuchic/xsec.f90',
-                                       'nuchic/mathtool.f90',
-                                       'nuchic/nform.f90'])
+
+def hadronic_tensor(filename):
+    """ Get path to hadronic_tensor code. """
+    return path.join('nuchic', 'hadronic_tensor', filename)
+
+
+FORM_FACTOR = Extension(name='_form_factor',
+                        sources=[hadronic_tensor('form_factor.cc'),
+                                 hadronic_tensor('form_factor_wrap.cxx')],
+                        )
+
+NUCLEAR_RESPONSE = Extension(name='_hadronic',
+                             sources=[hadronic_tensor('hadronic.pyf'),
+                                      hadronic_tensor('currents_opt_v1.f90'),
+                                      hadronic_tensor('mathtool.f90'),
+                                      hadronic_tensor('hadronic.f90')],
+                             )
 
 HERE = path.abspath(path.dirname(__file__))
 
@@ -63,8 +75,9 @@ setup(
     ],
     # Provide executable script to run the main code
     entry_points={'console_scripts': ['nuchic = nuchic.main:nu_chic', ], },
-    ext_modules=[EXT1],
-    package_data={'': ['data/*', 'data/qe/*', 'pke/*', 'configurations/*', 'template.yml']},
+    ext_modules=[FORM_FACTOR, NUCLEAR_RESPONSE],
+    package_data={'': ['data/*', 'data/qe/*', 'pke/*', 'configurations/*',
+                       'template.yml']},
     extras_require={
         'test': ['pytest', 'coverage', 'pytest-cov'],
     },

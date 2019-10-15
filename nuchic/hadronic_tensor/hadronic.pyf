@@ -1,0 +1,18 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module _hadronic ! in 
+    interface  ! in :hadronic
+        subroutine one_body(p1,pp1,q,ff,r_now) ! in :hadronic:hadronic.f90
+            use dirac_matrices
+            real*8 dimension(4),intent(in) :: p1
+            real*8 dimension(4),intent(in) :: pp1
+            real*8 dimension(4),intent(in) :: q
+            real*8 dimension(4),intent(in) :: ff
+            real*8 dimension(5),intent(out) :: r_now
+        end subroutine one_body
+    end interface 
+end python module hadronic
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
