@@ -19,6 +19,7 @@ def hadronic_tensor(filename):
 FORM_FACTOR = Extension(name='_form_factor',
                         sources=[hadronic_tensor('form_factor.cc'),
                                  hadronic_tensor('form_factor_wrap.cxx')],
+                        extra_compile_args=['-std=c++11'],
                         )
 
 NUCLEAR_RESPONSE = Extension(name='hadronic',
