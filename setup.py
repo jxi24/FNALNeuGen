@@ -21,7 +21,7 @@ FORM_FACTOR = Extension(name='_form_factor',
                                  hadronic_tensor('form_factor_wrap.cxx')],
                         )
 
-NUCLEAR_RESPONSE = Extension(name='_hadronic',
+NUCLEAR_RESPONSE = Extension(name='hadronic',
                              sources=[hadronic_tensor('hadronic.pyf'),
                                       hadronic_tensor('currents_opt_v1.f90'),
                                       hadronic_tensor('mathtool.f90'),
