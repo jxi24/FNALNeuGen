@@ -1,16 +1,39 @@
 !    -*- f90 -*-
 ! Note: the context of this file is case sensitive.
 
-python module _hadronic ! in 
+python module hadronic ! in 
     interface  ! in :hadronic
-        subroutine one_body(p1,pp1,q,ff,r_now) ! in :hadronic:hadronic.f90
-            use dirac_matrices
-            real*8 dimension(4),intent(in) :: p1
-            real*8 dimension(4),intent(in) :: pp1
-            real*8 dimension(4),intent(in) :: q
-            real*8 dimension(4),intent(in) :: ff
-            real*8 dimension(5),intent(out) :: r_now
-        end subroutine one_body
+        module hadronic_response ! in :hadronic:hadronic.f90
+            integer*4, save,private :: xa
+            integer*4, save,private :: i_fg
+            integer*4, save,private :: np_del
+            real*8, save,private :: xpf
+            real*8, save,private :: xmn
+            real*8, parameter,private,optional :: pi=acos(-1.0d0)
+            real*8, parameter,private,optional :: hbarc=197.327053d0
+            real*8, parameter,private,optional :: xmp=938.0d0
+            real*8, parameter,private,optional :: ppmax=1.0d0*1.e3
+            real*8, parameter,private,optional :: alpha=1.0d0/137.0d0
+            real*8, allocatable,private,dimension(:) :: pdel
+            real*8, allocatable,private,dimension(:) :: pot_del
+            subroutine one_body(p1,pp1,q,ff,r_now) ! in :hadronic:hadronic.f90:hadronic_response
+                real*8 dimension(4),intent(in) :: p1
+                real*8 dimension(4),intent(in) :: pp1
+                real*8 dimension(4),intent(in) :: q
+                real*8 dimension(4),intent(in) :: ff
+                real*8 dimension(5),intent(out) :: r_now
+            end subroutine one_body
+            subroutine two_body(p1_4,p2_4,pp1_4,pp2_4,q_4,dp1,dp2,r_now) ! in :hadronic:hadronic.f90:hadronic_response
+                real*8 dimension(4) :: p1_4
+                real*8 dimension(4) :: p2_4
+                real*8 dimension(4) :: pp1_4
+                real*8 dimension(4) :: pp2_4
+                real*8 dimension(4) :: q_4
+                real*8 :: dp1
+                real*8 :: dp2
+                real*8 dimension(5) :: r_now
+            end subroutine two_body
+        end module hadronic_response
     end interface 
 end python module hadronic
 

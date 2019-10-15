@@ -240,7 +240,7 @@ subroutine det_res1b(rl,rt)
 end subroutine det_res1b
 
 !--------------------
-! ONE BODY CURRENTS
+! TWO BODY CURRENTS
 !--------------------
 
 subroutine det_Jpi(gep)

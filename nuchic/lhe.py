@@ -8,7 +8,7 @@ import xml.dom.minidom as minidom
 
 
 def cast(lst, dtype):
-    """ Convert a list to a list of ints. """
+    """ Convert a list to a list of dtype. """
     if isinstance(lst, list):
         return list(map(dtype, lst))
     return dtype(lst)
