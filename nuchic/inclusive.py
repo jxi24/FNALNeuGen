@@ -1,7 +1,7 @@
 """ Implement inclusive cross-section calculations"""
 
 from collections import namedtuple
-import xsec
+import one_body
 import numpy as np
 from scipy import interpolate
 from absl import flags
@@ -76,7 +76,7 @@ def read_spectral_function_data():
     Reads spectral function data from the file 'pke12_tot.data'.
     The data in this file appears in several stanzas.
     The first line of the file specifies the sizes of the stanzas
-    
+
     has the format:
     n_e, n_p
     energy (or is it momentum??)
@@ -115,6 +115,7 @@ Variables = namedtuple(
     defaults=[None, None, None, None, None]
 )
 
+
 def _update_variables(var, attr, new_val):
     """
     Creates a new instance of the named tuple Variable with an updated value
@@ -147,7 +148,7 @@ class Quasielastic(Inclusive):
         self.f_g = fg
         self.width = 1e3  # Width of delta function, [width] = MeV^2
         self.iform = 2  # hard-coded flag which gets passed to Noemi's code
-        xsec.dirac_matrices.dirac_matrices_in(MQE/HBARC)
+        one_body.dirac_matrices.dirac_matrices_in(MQE/HBARC)
 
         if fg == 1:
             raise NotImplementedError(
@@ -193,7 +194,7 @@ class Quasielastic(Inclusive):
             var: namedtuple Variables containing kinematic quantities
             qval: ??
             pke: the spectral function
-        
+
         Returns:
             (wgt, var): the wgt and the kinematic variables, which are updated
                 to include 'cost_te' from the energy-conserving delta function.
@@ -224,7 +225,8 @@ class Quasielastic(Inclusive):
         var = _update_variables(var, 'cost_te', cost_te)
 
         # Compute the final momentum
-        mom_f = np.sqrt(var.mom**2 + qval**2 + 2 * qval * var.mom * var.cost_te)
+        mom_f = np.sqrt(var.mom**2 + qval**2
+                        + 2 * qval * var.mom * var.cost_te)
 
         # Check if the final momentum falls below the Fermi momentum
         if mom_f < self.k_f:
@@ -232,10 +234,10 @@ class Quasielastic(Inclusive):
 
         phi = 2.0 * np.pi * np.random.rand(1)  # Random azimuthal angle
         # Compute charged-current cross section
-        sig = xsec.cc1(qval/HBARC, var.omega, omegat,
-                       var.mom/HBARC,
-                       mom_f/HBARC, phi, self.beam_energy, self.thetalept,
-                       self.iform)
+        sig = one_body.cc1(qval/HBARC, var.omega, omegat,
+                           var.mom/HBARC,
+                           mom_f/HBARC, phi, self.beam_energy, self.thetalept,
+                           self.iform)
         wgt = (
             (var.mom**2 * pke[0] * self.n_z * sig * np.sqrt(MQE**2 + mom_f**2)
              * 2 * np.pi)
@@ -346,7 +348,8 @@ class Quasielastic(Inclusive):
                           % (omegat, e_out, var.mom, qval, MQE))
             return None
         var = _update_variables(var, 'cost_te', cost_te)
-        mom_f = np.sqrt(var.mom**2 + qval**2 + 2 * qval * var.mom * var.cost_te)
+        mom_f = np.sqrt(var.mom**2 + qval**2
+                        + 2 * qval * var.mom * var.cost_te)
         epf = np.sqrt(MQE**2 + mom_f**2)
         phi = 2.0*np.pi*np.random.random()
 

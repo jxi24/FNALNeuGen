@@ -22,6 +22,7 @@ module dirac_matrices
     complex*16, private, save :: Je_a_mu(4,4,4),Je_b_mu(4,4,4),Je_c_mu(4,4,4),Je_d_mu(4,4,4)
     complex*16, private, save :: J_pif(4,4,4),J_sea1(4,4,4),J_sea2(4,4,4),J_pl1(4,4,4),J_pl2(4,4,4)    
     real*8, private,save :: xmd,xmn,xmpi
+    Logical :: mode
 contains
 
 subroutine dirac_matrices_in(xmd_in,xmn_in,xmpi_in)
@@ -190,29 +191,33 @@ end subroutine
 ! ONE BODY CURRENTS
 !--------------------
 
-subroutine det_Ja(f1v,f2v)
+subroutine det_Ja(f1v,f2v,f1a,f2a)
   implicit none
   integer*4 :: mu,nu
-  real*8 :: f1v,f2v  
-  
+  real*8 :: f1v,f2v,f1a,f2a  
+ 
+  if (.not. mode) then
+  ! Electromagnetic
   do mu=1,4
      J_1(:,:,mu)=czero
      do nu=1,4
         J_1(:,:,mu)=J_1(:,:,mu)+ci*f2v*sigma_munu(:,:,mu,nu)&
-             &     *g_munu(nu,nu)*q(nu)/2.0d0/xmn
+                   *g_munu(nu,nu)*q(nu)/2.0d0/xmn
      enddo
      J_1(:,:,mu)=J_1(:,:,mu)+f1v*gamma_mu(:,:,mu)
   enddo
+  else
+  ! Electroweak
+  endif
   
 end subroutine det_Ja
 
 
-subroutine det_res1b(rl,rt)
+subroutine det_res1b(r_now)
    implicit none
-   integer*4 :: i1,f1,i
-!   integer*4 :: j
+   integer*4 :: i1,f1,i, j
    complex*16 :: J_mu(2,2,4),J_mu_dag(2,2,4)
-   real*8 :: res(4,4),rt,rl
+   real*8 :: res(4,4),r_now(5)
    
 
    do i1=1,2
@@ -228,13 +233,18 @@ subroutine det_res1b(rl,rt)
    do i1=1,2
       do f1=1,2
          do i=1,4
-            res(i,i)=res(i,i)+REAL(J_mu_dag(f1,i1,i)*J_mu(f1,i1,i))
+            do j=1,4
+                res(i,j)=res(i,j)+REAL(J_mu_dag(f1,i1,i)*J_mu(f1,i1,j))
+            enddo
          enddo
       enddo
    enddo
    
-   rl=res(1,1)
-   rt=res(2,2)+res(3,3)
+   r_now(1) = res(1,1)                      ! W^00
+   r_now(2) = -0.5*(res(1,4)+res(4,1))      ! -1/2 (W^03 + W^30)
+   r_now(3) = res(4,4)                      ! W^33
+   r_now(4) = res(2,2) + res(3,3)           ! W^11 + W^22
+   r_now(5) = -0.5*ci*(res(2,3)-res(3,2))   ! -i/2 (W^12 - W^21)
  
   return
 end subroutine det_res1b
@@ -249,17 +259,22 @@ subroutine det_Jpi(gep)
    real*8 :: fpik1,fpik2,gep,frho1,frho2,fact
    fpik1=(lpi**2-xmpi**2)/(lpi**2-k1(1)**2+sum(k1(2:4)**2))
    fpik2=(lpi**2-xmpi**2)/(lpi**2-k2(1)**2+sum(k2(2:4)**2))
-   frho1=0.0d0!1.0d0/(1.0d0-(k1(1)**2-sum(k1(2:4)**2))/xmrho**2)
-   frho2=0.0d0!1.0d0/(1.0d0-(k2(1)**2-sum(k2(2:4)**2))/xmrho**2)
+   if(.not. mode) then
+   frho1=0.0d0
+   frho2=0.0d0
+   else
+   frho1=1.0d0/(1.0d0-(k1(1)**2-sum(k1(2:4)**2))/xmrho**2)
+   frho2=1.0d0/(1.0d0-(k2(1)**2-sum(k2(2:4)**2))/xmrho**2)
+   endif
    !...this factor is needed to fulfill current conservation, see A3 Dekker
    fact=(k1(1)**2-sum(k1(2:4)**2)-xmpi**2)*(k2(1)**2-sum(k2(2:4)**2)-xmpi**2) &
         & *(1.0d0/(k1(1)**2-sum(k1(2:4)**2)-xmpi**2)/(k2(1)**2-sum(k2(2:4)**2)-xmpi**2) &
         & - 1.0d0/(k1(1)**2-sum(k1(2:4)**2)-xmpi**2)/(lpi**2-k1(1)**2+sum(k1(2:4)**2)) &
         & - 1.0d0/(k2(1)**2-sum(k2(2:4)**2)-xmpi**2)/(lpi**2-k2(1)**2+sum(k2(2:4)**2)))
    do mu=1,4
-      J_pif(:,:,mu)=gep*(k1(mu)-k2(mu))*Pi_k1(:,:)!*fact
-      J_sea1(:,:,mu)=-gep*matmul(gamma_mu(:,:,5),gamma_mu(:,:,mu))-frho1/ga*gamma_mu(:,:,mu)!/fpik2**2
-      J_sea2(:,:,mu)=gep*matmul(gamma_mu(:,:,5),gamma_mu(:,:,mu))+frho2/ga*gamma_mu(:,:,mu)!/fpik1**2
+      J_pif(:,:,mu)=gep*(k1(mu)-k2(mu))*Pi_k1(:,:)
+      J_sea1(:,:,mu)=-gep*matmul(gamma_mu(:,:,5),gamma_mu(:,:,mu))-frho1/ga*gamma_mu(:,:,mu)
+      J_sea2(:,:,mu)=gep*matmul(gamma_mu(:,:,5),gamma_mu(:,:,mu))+frho2/ga*gamma_mu(:,:,mu)
       J_pl1(:,:,mu)=frho1/ga*q(mu)*q_sl(:,:)/(q(1)**2-q(4)**2-xmpi**2)
       J_pl2(:,:,mu)=-frho2/ga*q(mu)*q_sl(:,:)/(q(1)**2-q(4)**2-xmpi**2)
    enddo

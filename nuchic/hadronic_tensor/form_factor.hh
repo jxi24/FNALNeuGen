@@ -6,10 +6,10 @@
 #include <vector>
 
 enum class FormFactorMode {
-    one,
-    two,
-    three,
-    ZExpansion
+    Dipole, 
+    Kelly,         // PRC 70, 068282 (2004)
+    BBBA,          // NPB Proc. Suppl., 159, 127 (2006)
+    Arrington-Hill // Phys. Lett. B, 777, pg. 8-15 (2018)
 };
 
 /**

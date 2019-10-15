@@ -31,7 +31,7 @@ std::vector<double> FormFactor::operator() (const FormFactorMode mode, double Q2
 
     // Choose the appropriate mode
     switch(mode) {
-        case FormFactorMode::one:
+        case FormFactorMode::Dipole:
             G_ep = G_D;
             G_en = -mu_n*Q2*G_D/(1.0+Q2/mN2)/(4*mN2);
 
@@ -39,7 +39,7 @@ std::vector<double> FormFactor::operator() (const FormFactorMode mode, double Q2
             G_mn = mu_n*G_D;
 
             break;
-        case FormFactorMode::two:
+        case FormFactorMode::Kelly:
             G_ep = (1.0 + _params["a_ep"]*tau)
                    / (1.0 + _params["b_ep0"]*tau + _params["b_ep1"]*tau*tau
                           + _params["b_ep2"]*pow(tau,3));
@@ -53,7 +53,7 @@ std::vector<double> FormFactor::operator() (const FormFactorMode mode, double Q2
                           + _params["b_mn2"]*pow(tau,3));
 
             break;
-        case FormFactorMode::three: {
+        case FormFactorMode::BBBA: {
                 // Load parameters into vectors
                 std::vector<double> aa_ep = {_params["aa_ep0"], _params["aa_ep1"],
                                              _params["aa_ep2"], _params["aa_ep3"]};

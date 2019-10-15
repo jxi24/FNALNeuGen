@@ -16,24 +16,29 @@ subroutine one_body(p1, pp1, q, ff, r_now)
     ! q: momentum transfer (E, px, py, pz)
     real*8, INTENT(IN) :: p1(4), pp1(4), q(4), ff(4)
     real*8, INTENT(OUT) :: r_now(5)
-    real*8 :: rlp, rtp, rln, rtn, ff1p, ff1n, ff2p, ff2n
+    real*8 :: ff1p, ff1n, ff2p, ff2n, ff1a, ff2a
+    real*8 :: r_now_p(5), r_now_n(5)
+    integer :: i
 
     print*, p1, pp1, q, ff
 
     call current_init_one_body(p1, pp1, q)
     call define_spinors()
 
+    ! Get form factors
     ff1p = 0.5d0*(ff(1)+ff(2))
     ff2p = 0.5d0*(ff(3)+ff(4))
     ff1n = 0.5d0*(-ff(1)+ff(2))
     ff2n = 0.5d0*(-ff(3)+ff(4))
-    call det_Ja(ff1p, ff2p)
-    call det_res1b(rlp, rtp)
-    call det_Ja(ff1n, ff2n)
-    call det_res1b(rln, rtn)
 
-    r_now(1) = (rlp+rln)
-    r_now(2) = (rtp+rtn)
+    call det_Ja(ff1p, ff2p, ff1a, ff2a)
+    call det_res1b(r_now_p)
+    call det_Ja(ff1n, ff2n, ff1a, ff2a)
+    call det_res1b(r_now_n)
+
+    do i = 1,5
+        r_now(i) = r_now_p(i) + r_now_n(i)
+    enddo
 
 end subroutine one_body
 
