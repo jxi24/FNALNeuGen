@@ -8,7 +8,8 @@ from absl import logging
 
 # from nuChic.particle import Particle
 from .constants import MEV, MQE as mN
-from .utils import make_path
+from .utils import make_path, rand_sphere
+from .config import settings
 
 Z_TO_NAME = {
     1: 'H',
@@ -45,6 +46,17 @@ class Nucleus:
     TODO: Flesh out docs
     """
     def __init__(self, Z, A, binding, kf, config_type):
+        if Z is None:
+            self.protons = settings().mfp_nucleons
+            self.neutrons = 0
+            self.binding = 0
+            self.kf = 0
+            self.radius = settings().mfp_radius
+            self.potential = 0
+            self.density = ((self.protons + self.neutrons)
+                            / (4.0/3.0*np.pi*self.radius**3))
+            return
+
         if Z > A:
             raise ValueError('Requires the number of protons be less than '
                              'total number of nucleons. Got {} protons and '
@@ -64,7 +76,7 @@ class Nucleus:
         # 1 million configurations, no header
         # index   pid    x    y    z
         if Z == 6 and A == 12:
-            self.c12_density_db = pd.read_csv(
+            self.density = pd.read_csv(
                 make_path('{}_configs.out.gz'.format(config_type.upper()),
                           'configurations'),
                 sep=r'\s+',
@@ -87,6 +99,11 @@ class Nucleus:
             protons = NAME_TO_Z[protons.upper()]
 
             return Nucleus(protons, nucleons, binding, kf, config_type)
+
+        # Testing of mean free path for cascade
+        if name == 'mfp_calc':
+            return Nucleus(None, None, None, 0, None)
+
         raise ValueError('Invalid nucleus {}.'.format(name))
 
     def __str__(self):
@@ -153,30 +170,40 @@ class Nucleus:
 #        return protons, neutrons
 
     def generate_config(self):
-        """ This reads C-12 configuration files only!!!"""
+        """ Generate configurations based off the density profile. """
 
-        if not(self.nucleons == 12 and self.protons == 6):
-            raise NotImplementedError('Only C-12 is supported for now!')
+        # Given a set of configurations to choose from
+        if isinstance(self.density, pd.DataFrame):
+            config_index = np.random.randint(
+                0, high=len(self.density.index) / 12)
+            idx0 = config_index * 12
 
-        config_index = np.random.randint(
-            0, high=len(self.c12_density_db.index) / 12)
-        idx0 = config_index * 12
+            db_tmp = self.density.iloc[idx0:idx0 + 12]
+            proton_mask = db_tmp['pid'] == 1
+            neutron_mask = db_tmp['pid'] == -1
+            protons = np.asarray(db_tmp[proton_mask][['x', 'y', 'z']])
+            neutrons = np.asarray(db_tmp[neutron_mask][['x', 'y', 'z']])
 
-        db_tmp = self.c12_density_db.iloc[idx0:idx0 + 12]
-        proton_mask = db_tmp['pid'] == 1
-        neutron_mask = db_tmp['pid'] == -1
-        protons = np.asarray(db_tmp[proton_mask][['x', 'y', 'z']])
-        neutrons = np.asarray(db_tmp[neutron_mask][['x', 'y', 'z']])
+            # Rotations using Euler angles in the "x-convention"
+            angles = np.random.random(3) * 2 * np.pi
+            angles[1] /= 2.
+            rotation = Rotation.from_euler('zxz', angles)
 
-        # Rotations using Euler angles in the "x-convention"
-        angles = np.random.random(3) * 2 * np.pi
-        angles[1] /= 2.
-        rotation = Rotation.from_euler('zxz', angles)
+            protons = rotation.apply(protons)
+            neutrons = rotation.apply(neutrons)
 
-        protons = rotation.apply(protons)
-        neutrons = rotation.apply(neutrons)
+            return protons, neutrons
 
-        return protons, neutrons
+        # Given function to generate configurations from
+        if callable(self.density):
+            raise NotImplementedError(
+                'Function for density currently not implemented.')
+
+        # Given a constant density to generate from
+        if isinstance(self.density, float):
+            num_pts = self.protons + self.neutrons
+            nucleons = rand_sphere(self.radius, num_pts)
+            return nucleons[:self.protons], nucleons[self.protons:]
 
     def generate_momentum(self):
         """Generate a random momentum 3-vector in cartesian coordinates."""

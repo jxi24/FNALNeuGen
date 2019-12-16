@@ -5,6 +5,7 @@ from absl import flags, app, logging
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
+from scipy.optimize import leastsq
 
 from .vegas import Integrator
 from .inclusive import Quasielastic
@@ -24,6 +25,8 @@ flags.DEFINE_bool(
     'cascade', None, 'Flag to turn on/off the cascade', short_name='c')
 flags.DEFINE_bool('folding', None, 'Flag to turn on/off the folding function')
 flags.DEFINE_bool('cascade_test', None, 'Flag to test the cascade code')
+flags.DEFINE_bool('mfp_test', None, 
+                  'Flag to test mean free path of cascade algorithm')
 flags.DEFINE_bool('testing', None, 'Flag to test the basics of the program')
 
 
@@ -75,6 +78,10 @@ class NuChic:
 
         if FLAGS.cascade_test:
             self.calc_cross_section()
+            return
+
+        if FLAGS.mfp_test:
+            self.calc_mfp()
             return
 
         ndims = 3
@@ -286,6 +293,57 @@ class NuChic:
         print(np.pi*radius**2)
         print(xsec.tolist())
         return xsec.tolist()
+
+    def calc_mfp(self):
+        """ Calculate the mean free path of the cascade algorithm. """
+
+        # Initialize FSI
+        self.fsi = FSI(settings().distance*FM, mfp=True)
+
+        # Initialize variables
+        distances = []
+        steps = int(settings().nucleus.radius/settings().distance)
+
+        # Loop over events
+        for _ in tqdm(range(self.nevents), ncols=80):
+            position = Vec3(0, 0, 0)
+            momentum = Vec4(np.sqrt(MQE**2 + settings().beam_energy**2),
+                            0, 0,
+                            settings().beam_energy)
+
+            proton = Particle(2212, momentum, position)
+            self.fsi.kicked_idxs = [len(self.fsi.nucleons)]
+            self.fsi.nucleons.append(proton)
+            output = self.fsi(steps)
+            if not isinstance(output, list):
+                distances.append(output)
+            self.fsi.reset()
+
+        mean_free_path = (settings().mfp_xsec*settings().nucleus.density)**-1
+        lam = np.linspace(0, settings().nucleus.radius, steps)
+        theory = 1.0/mean_free_path*np.exp(-lam/mean_free_path)
+
+        counts, bins, _ = plt.hist(distances, bins=lam,
+                                   density=True, label='data',
+                                   histtype='step',
+                                   align='mid')
+
+        init = [mean_free_path]
+
+        def fitfunc(params, points):
+            return 1.0/params[0]*np.exp(-points/params[0])
+
+        def errfunc(params, points, values):
+            return values - fitfunc(params, points)
+
+        fit = leastsq(errfunc, init, args=((bins[1:]+bins[:-1])/2.0, counts))
+        print(fit[0], mean_free_path)
+
+        plt.plot(lam, fitfunc(fit[0], lam), label='fit')
+        plt.plot(lam, theory, label='theory')
+        plt.legend()
+        plt.yscale('log')
+        plt.show()
 
 
 def main(argv):

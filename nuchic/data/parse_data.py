@@ -27,7 +27,8 @@ class GeantData:
     True
 
     """
-    def __init__(self):
+    def __init__(self, mfp):
+        self.mfp = mfp
         self._names = np.array(['pp', 'np'])
         self._pcm = {}
         self._sig_tot = {}
@@ -97,6 +98,11 @@ class GeantData:
     @timing
     def cross_section(self, mode, energy):
         """ Return the total cross-section at a given center of mass energy."""
+
+        # Fix cross-section if testing mean free path
+        if self.mfp:
+            return settings().mfp_xsec
+
         return self._cross_section[mode](energy)
 
 

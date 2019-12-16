@@ -33,7 +33,7 @@ class FSI:
               - reabsorption routine
     """
 
-    def __init__(self, distance, final=True):
+    def __init__(self, distance, final=True, mfp=False):
         """
         Generates nucleus configuration and kicked nucleon.
 
@@ -44,6 +44,7 @@ class FSI:
         self.time_step = None
         self.distance = distance
         self.final = final
+        self.mfp = mfp
 
         # Generate p,n position distribution
         protons, neutrons = settings().nucleus.generate_config()
@@ -66,7 +67,7 @@ class FSI:
         self.kicked_idxs = []
         self.scatter = False
 
-        self.interactions = GeantData()
+        self.interactions = GeantData(mfp)
 
     @property
     def number_nucleons(self):
@@ -209,9 +210,8 @@ class FSI:
                         new_kicked_idxs.append(new_kick_idxs[0])
                         new_kicked_idxs = list(
                             set(new_kicked_idxs))  # Remove duplicates
-                        self.scatter = True
-                        if not self.final:
-                            return
+                        if self.mfp:
+                            return self.nucleons[kick_idx].pos.mag
 
             self.kicked_idxs = new_kicked_idxs
             logging.debug('kicked_idxs = {}'.format(self.kicked_idxs))
