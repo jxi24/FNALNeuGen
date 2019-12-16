@@ -6,6 +6,7 @@ from scipy import interpolate, optimize
 from absl import logging
 
 from ..utils import timing, make_path
+from ..config import settings
 
 
 class GeantData:

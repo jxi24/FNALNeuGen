@@ -248,8 +248,8 @@ class FSI:
         logging.debug('Number of final state nucleons: '
                       '{}'.format(sum(stat_list)))
         if -1 in stat_list and self.final:
-            for p in self.nucleons:
-                print(p.status, p.mom, p.pos)
+            for part in self.nucleons:
+                print(part.status, part.mom, part.pos)
             logging.fatal(
                 "Cascade Failed at step: {}, "
                 "has at least one propagating nucleon still".format(step))

@@ -14,6 +14,7 @@ from .cascade import FSI
 from .constants import FM, GEV, MQE
 from .utils import momentum_sort
 from .histogram import Histogram
+from .nucleus import Nucleus
 from .config import settings
 from .qe_data import QuasielasticData
 from .particle import Particle
@@ -45,6 +46,14 @@ class NuChic:
     """ Main driver class for the nuChic code. """
     def __init__(self, run_card):
         settings().load(run_card)
+
+        nucleus = Nucleus.make_nucleus(
+            settings().__dict__['run']['nucleus'],
+            settings().__dict__['parameters']['binding_energy'],
+            settings().__dict__['parameters']['fermi_momentum'],
+            settings().__dict__['parameters']['config_type'])
+        settings().nucleus = nucleus
+
         self.histograms = {'omega': Histogram([0, 0.6], 200),
                            'omega2': Histogram([0, 0.6], 200),
                            'px_pre': Histogram([-500, 500], 100),

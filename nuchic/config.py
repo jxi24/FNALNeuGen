@@ -6,7 +6,6 @@ import yaml
 from absl import logging
 
 from .utils import make_path
-from .nucleus import Nucleus
 from .histogram import Histogram
 
 
@@ -28,11 +27,7 @@ class _Settings:
                           'Creating template at `run.yml` and '
                           'quitting.'.format(filename))
 
-        self.nucleus = Nucleus.make_nucleus(
-            self.__dict__['run']['nucleus'],
-            self.__dict__['parameters']['binding_energy'],
-            self.__dict__['parameters']['fermi_momentum'],
-            self.__dict__['parameters']['config_type'])
+        self.nucleus = None
 
 #    def __getattr__(self, name):
 #        return self.__dict__.get(name, False)
@@ -128,6 +123,27 @@ class _Settings:
             # TODO: Store information on how to calculate
 
         return histograms
+
+    # mean free path parameters
+    @property
+    def mean_free_path(self):
+        """ Return the dictionary of mean free path settings. """
+        return self.__dict__['mean_free_path']
+
+    @property
+    def mfp_xsec(self):
+        """ Return the cross-section for the mean free path calculation. """
+        return self.mean_free_path['xsec']
+
+    @property
+    def mfp_nucleons(self):
+        """ Return number of nucleons for the mean free path calculation."""
+        return self.mean_free_path['nucleons']
+
+    @property
+    def mfp_radius(self):
+        """ Return radius of the nucleus for mean free path calculation."""
+        return self.mean_free_path['radius']
 
 
 _SETTINGS = _Settings()
