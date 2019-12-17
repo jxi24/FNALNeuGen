@@ -197,21 +197,23 @@ class FSI:
 
                 if new_kick_idxs:
                     logging.debug('Hit?')
-                    (really_did_hit, self.nucleons[kick_idx],
-                     self.nucleons[new_kick_idxs[0]]) = \
-                        self.generate_final_phase_space(
-                            self.nucleons[kick_idx],
-                            self.nucleons[new_kick_idxs[0]]
-                        )
-                    # if it really hit, add index to new kicked index
-                    # list and delete duplicates
-                    if really_did_hit:
-                        logging.debug('Hit!!!!')
-                        new_kicked_idxs.append(new_kick_idxs[0])
-                        new_kicked_idxs = list(
-                            set(new_kicked_idxs))  # Remove duplicates
-                        if self.mfp:
-                            return self.nucleons[kick_idx].pos.mag
+                    for index in new_kick_idxs:
+                        (really_did_hit, self.nucleons[kick_idx],
+                         self.nucleons[index]) = \
+                            self.generate_final_phase_space(
+                                self.nucleons[kick_idx],
+                                self.nucleons[index]
+                            )
+                        # if it really hit, add index to new kicked index
+                        # list and delete duplicates
+                        if really_did_hit:
+                            logging.debug('Hit!!!!')
+                            new_kicked_idxs.append(index)
+                            new_kicked_idxs = list(
+                                set(new_kicked_idxs))  # Remove duplicates
+                            if self.mfp:
+                                return self.nucleons[kick_idx].pos.mag
+                            break
 
             self.kicked_idxs = new_kicked_idxs
             logging.debug('kicked_idxs = {}'.format(self.kicked_idxs))
