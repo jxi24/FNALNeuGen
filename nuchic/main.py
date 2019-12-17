@@ -5,7 +5,7 @@ from absl import flags, app, logging
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
-from scipy.optimize import leastsq
+from scipy.optimize import curve_fit
 
 from .vegas import Integrator
 from .inclusive import Quasielastic
@@ -332,26 +332,65 @@ class NuChic:
         lam = np.linspace(0, settings().nucleus.radius, steps)
         theory = 1.0/mean_free_path*np.exp(-lam/mean_free_path)
 
-        counts, bins, _ = plt.hist(distances, bins=lam,
-                                   density=True, label='data',
-                                   histtype='step',
-                                   align='mid')
+        counts, bins = np.histogram(distances, bins=lam)
+
+        error = np.sqrt(counts)/np.sum(counts*np.diff(bins))
+
+        _, axis = plt.subplots()
+
+        counts, bins, _ = axis.hist(distances, bins=lam,
+                                    density=True, label='data',
+                                    histtype='step',
+                                    align='mid')
+
+        error_up = np.insert(counts + error, 0, counts[0]+error[0])
+        error_dw = np.insert(counts - error, 0, counts[0]-error[0])
+        plt.fill_between(bins, error_up, error_dw,
+                         alpha=0.3, color=u'#1f77b4',
+                         step='pre')
+
+        nonzero = np.nonzero(counts)
+
+        xdata = (bins[1:] + bins[:-1])/2.0
+        counts = counts[nonzero]
+        xdata = xdata[nonzero]
+        error = error[nonzero]
 
         init = [mean_free_path]
 
-        def fitfunc(params, points):
-            return 1.0/params[0]*np.exp(-points/params[0])
+        def fitfunc(point, param):
+            return 1.0/param*np.exp(-point/param)
 
-        def errfunc(params, points, values):
-            return values - fitfunc(params, points)
+        popt, pcov = curve_fit(fitfunc, xdata, counts,
+                               p0=init,
+                               sigma=error)
+        perr = np.sqrt(pcov[0][0])
+        print('Number of multiple nucelons in cylinder = {}'.format(
+            self.fsi.multiple_nucleons))
+        print('Theory mfp: {:4f}'.format(mean_free_path))
+        print('Fit result: {:4f} +/- {:4f}'.format(popt[0],
+                                                   perr))
 
-        fit = leastsq(errfunc, init, args=((bins[1:]+bins[:-1])/2.0, counts))
-        print(fit[0], mean_free_path)
+        axis.text(0.83, 0.87, 'Theory mfp: {:4f}'.format(mean_free_path),
+                  horizontalalignment='left',
+                  verticalalignment='center', transform=axis.transAxes)
+        axis.text(0.83, 0.84, 'Fit result: {:4f} +/- {:4f}'.format(popt[0],
+                                                                   perr),
+                  horizontalalignment='left',
+                  verticalalignment='center', transform=axis.transAxes)
 
-        plt.plot(lam, fitfunc(fit[0], lam), label='fit')
-        plt.plot(lam, theory, label='theory')
+        plt.plot(lam, fitfunc(lam, popt), label='fit', color='orange')
+        plt.fill_between(lam, fitfunc(lam, popt+np.sqrt(pcov[0][0])),
+                         fitfunc(lam, popt-np.sqrt(pcov[0][0])),
+                         color='orange',
+                         alpha=0.5)
+        plt.plot(lam, theory, label='theory', color='green')
         plt.legend()
         plt.yscale('log')
+        plt.ylim([1e-4, 2])
+        fig_manager = plt.get_current_fig_manager()
+        fig_manager.window.showMaximized()
+        plt.savefig('mean_free_path.png')
         plt.show()
 
 
