@@ -152,6 +152,8 @@ class FSI:
         self.nucleons += [Particle(pid=2112, mom=dummy_mom,
                                    pos=Vec3(*x_j)) for x_j in neutrons]
 
+        self.nucleons = np.array(self.nucleons)
+
         self.scatter = False
         # Keep outgoing particles after cascade
         # self.outgoing_particles = []
@@ -170,18 +172,29 @@ class FSI:
                 beta = self.nucleons[idx].beta
         self.time_step = distance/(beta*HBARC)  # This is the adapted time step
 
+    @staticmethod
+    @timing
+    def between_planes(positions, point1, point2):
+        """ Return if points are between the two planes or not. """
+        dist = point2 - point1
+        return np.logical_and(np.dot(positions - point1, dist) >= 0,
+                              np.dot(positions - point2, dist) <= 0)
+
+    @staticmethod
+    @timing
+    def project(points, plane_pt, plane_vec):
+        """ Project points onto a plane. """
+        proj = np.dot(points - plane_pt, plane_vec)[:, np.newaxis]*plane_vec
+        return points - proj
+
     @timing
     def __call__(self, max_steps=10000):
         ''' Performs the full propagation of the kicked nucleons inside
         the nucleus. Updates the list of outgoing_particles with
         all status=+1 particles
         '''
-        # Overestimate cross section
-        sigma = 1000*MB  # 1 barn xsec = 100 fm^2
-        # positions = []
-        # positions_temp = []
         for step in range(max_steps):
-            logging.debug('*******  STEP {} *******'.format(step))
+            logging.debug('*******  STEP %i *******', step)
             if self.kicked_idxs == []:
                 logging.debug('No more particles propagating - DONE!')
                 break
