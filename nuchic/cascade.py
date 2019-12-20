@@ -637,9 +637,13 @@ class FSI:
             # Hit background nucleon becomes propagating nucleon
             particle2.status = -1
 
-        logging.debug('After:\nPart1 = {}\nPart2 = {}'.format(particle1,
-                                                              particle2))
-        return really_did_hit, particle1, particle2
+            # Testing
+#            self.distances.append(np.minimum((self.cylinder_pt1 - particle2.pos).mag,
+#                                             (self.cylinder_pt2 - particle2.pos).mag))
+
+        # logging.debug('After:\nPart1 = {}\nPart2 = {}'.format(particle1,
+        #                                                       particle2))
+        return really_did_hit
 
     @timing
     def pauli_blocking(self, four_momentum):
