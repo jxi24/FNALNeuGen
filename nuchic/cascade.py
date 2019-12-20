@@ -536,11 +536,43 @@ class FSI:
         # Check cylinder:
         # (using global cylinder variables defined in interacted)
         cylinder_r = np.sqrt(sigma_p_dependent/np.pi)
+
+        positions = []
+        idx = self.nucleons.index(particle1)
+        idxs = np.arange(len(self.nucleons))
+        idxs = idxs[np.where(idxs != idx)]
+        for i in idxs:
+            if self.nucleons[i].is_final() or \
+                    self.nucleons[i].is_in_formation_zone():
+                idxs = idxs[np.where(idxs != i)]
+                continue
+            logging.debug('Index: {}, Position: '
+                          '{}'.format(i, self.nucleons[i].pos.vec))
+            positions.append(self.nucleons[i].pos.vec)
+        in_cylinder = self.points_in_cylinder(
+            self.cylinder_pt1.array,
+            self.cylinder_pt2.array,
+            cylinder_r,
+            positions
+        )
+        logging.debug('indices = {}, prop = {}'.format(idxs, idx))
+        logging.debug('in_cylinder = {}'.format(in_cylinder))
+#        if len([x for x in in_cylinder if x]) > 1:
+#            print(sigma_p_dependent, len([x for x in in_cylinder if x]))
+#            for index in idxs[in_cylinder]:
+#                print(self.nucleons[index])
+
         vec = self.cylinder_pt2.array - self.cylinder_pt1.array
         cylinder_r *= np.linalg.norm(vec)
         particle_r = np.linalg.norm(np.cross(
             particle2.pos.array - self.cylinder_pt1.array, vec))
-        if not particle_r <= cylinder_r:
+#        print(settings().nucleus.test_density(particle1.pos.mag)*sigma_p_dependent*10*settings().distance, particle_r <= cylinder_r)
+#        prob = settings().nucleus.test_density(particle1.pos.mag)*sigma_p_dependent*10*settings().distance
+        if not particle_r <= 5000000.0*cylinder_r:
+            return False, particle1, particle2
+
+        prob = np.exp(-particle_r/np.sqrt(sigma_p_dependent/np.pi))
+        if prob < np.random.random():
             return False, particle1, particle2
 
         return self.finalize_momentum(mode, particle1, particle2, boost_vec)
