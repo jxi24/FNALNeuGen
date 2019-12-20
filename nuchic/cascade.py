@@ -259,33 +259,32 @@ class FSI:
                     not_propagating.append(i)
                     if settings().nucleus.escape(self.nucleons[kick_idx]):
                         self.nucleons[kick_idx].status = 1
-                        logging.debug('nucleon {} is OOOOOOUT! '
-                                      'status: {}'.format(
-                                          kick_idx,
-                                          self.nucleons[kick_idx].status)
-                                      )
+                        logging.debug('nucleon %i is OOOOOOUT! '
+                                      'status: %i',
+                                      kick_idx,
+                                      self.nucleons[kick_idx].status)
                     else:
                         self.nucleons[kick_idx].status = 2
-                        logging.debug('nucleon {} is captured! '
-                                      'status: {}'.format(
-                                          kick_idx,
-                                          self.nucleons[kick_idx].status)
-                                      )
+                        logging.debug('nucleon %i is captured! '
+                                      'status: %i',
+                                      kick_idx,
+                                      self.nucleons[kick_idx].status)
             # Delete indices of non-propagating particles.
             # Delete in reverse order to avoid shifting elements.
             for i in sorted(not_propagating, reverse=True):
                 del self.kicked_idxs[i]
 
-        logging.debug('Number of steps: {}'.format(step))
+        logging.debug('Number of steps: %i', step)
         stat_list = [n.status for n in self.nucleons]
-        logging.debug('Number of final state nucleons: '
-                      '{}'.format(sum(stat_list)))
-        if -1 in stat_list and self.final:
+        logging.debug('Number of final state nucleons: %i',
+                      sum(stat_list))
+        if -1 in stat_list:
             for part in self.nucleons:
                 print(part.status, part.mom, part.pos)
             logging.fatal(
-                "Cascade Failed at step: {}, "
-                "has at least one propagating nucleon still".format(step))
+                "Cascade Failed at step: %i, "
+                "has at least one propagating nucleon still",
+                step)
 
         for part in self.nucleons:
             if part.status == -2:
@@ -414,8 +413,8 @@ class FSI:
             TODO: Implement realistic phase space
         '''
 
-        logging.debug('Before:\nPart1 = {}\nPart2 = {}'.format(particle1,
-                                                               particle2))
+        logging.debug('Before:\nPart1 = %s\nPart2 = %s',
+                      particle1, particle2)
         # Is particle 2 a background particle? If so, we need to
         # generate it's momentum
         if particle2.is_background():
