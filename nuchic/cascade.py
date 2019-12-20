@@ -204,37 +204,50 @@ class FSI:
             for i in self.kicked_idxs:
                 if self.nucleons[i].is_in_formation_zone():
                     self.nucleons[i].formation_zone -= self.time_step
+
             # copy to avoid changing during iteration
             new_kicked_idxs = list(self.kicked_idxs)
             for kick_idx in self.kicked_idxs:
-                logging.debug('kick_idx = {}'.format(kick_idx))
-                new_kick_idxs = self.interacted(kick_idx, sigma)
+                kick_nuc = self.nucleons[kick_idx]
+                idxs, dist = self.allowed_interactions(kick_idx)
+                if idxs is None:
+                    continue
 
-                logging.debug('new_kick_idxs = {}'.format(new_kick_idxs))
-                new_kick_idxs = new_kick_idxs.tolist()
+                hit_idx = self.interacted(kick_idx, idxs, dist)
+                if hit_idx is None:
+                    continue
 
-                if new_kick_idxs:
-                    logging.debug('Hit?')
-                    for index in new_kick_idxs:
-                        (really_did_hit, self.nucleons[kick_idx],
-                         self.nucleons[index]) = \
-                            self.generate_final_phase_space(
-                                self.nucleons[kick_idx],
-                                self.nucleons[index]
-                            )
-                        # if it really hit, add index to new kicked index
-                        # list and delete duplicates
-                        if really_did_hit:
-                            logging.debug('Hit!!!!')
-                            new_kicked_idxs.append(index)
-                            new_kicked_idxs = list(
-                                set(new_kicked_idxs))  # Remove duplicates
-                            if self.mfp:
-                                return self.nucleons[kick_idx].pos.mag
-                            break
+                hit_nuc = self.nucleons[hit_idx]
+                boost_vec = (kick_nuc.mom + hit_nuc.mom).boost_vector()
+
+                if kick_nuc.pid == hit_nuc.pid:
+                    mode = 'pp'
+                else:
+                    mode = 'np'
+
+                if logging.level_debug():
+                    logging.debug('kick_idx = %i', kick_idx)
+                    logging.debug('indices = %s', idxs)
+                    logging.debug('distances = %s', dist)
+                    logging.debug('hit_idx = %i', hit_idx)
+                    logging.debug('%s, %s',
+                                  self.nucleons[kick_idx],
+                                  self.nucleons[hit_idx])
+
+                hit = self.finalize_momentum(mode, kick_nuc, hit_nuc,
+                                             boost_vec)
+
+                if hit:
+                    logging.debug('%s, %s',
+                                  self.nucleons[kick_idx],
+                                  self.nucleons[hit_idx])
+                    new_kicked_idxs.append(hit_idx)
+                    if self.mfp:
+                        return self.nucleons[kick_idx].pos.mag
+                    if self.test_cascade:
+                        return 1
 
             self.kicked_idxs = new_kicked_idxs
-            logging.debug('kicked_idxs = {}'.format(self.kicked_idxs))
 
             # After-hit checks
             not_propagating = []
