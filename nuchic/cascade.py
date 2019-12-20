@@ -33,7 +33,7 @@ class FSI:
               - reabsorption routine
     """
 
-    def __init__(self, distance, final=True, mfp=False):
+    def __init__(self, distance, test_cascade=False, mfp=False):
         """
         Generates nucleus configuration and kicked nucleon.
 
@@ -43,8 +43,6 @@ class FSI:
         """
         self.time_step = None
         self.distance = distance
-        self.final = final
-        self.mfp = mfp
 
         # Generate p,n position distribution
         protons, neutrons = settings().nucleus.generate_config()
@@ -60,14 +58,21 @@ class FSI:
         self.nucleons += [Particle(pid=2112, mom=dummy_mom,
                                    pos=Vec3(*x_j)) for x_j in neutrons]
 
+        self.nucleons = np.array(self.nucleons)
+
         # Cylinder parameters
         self.cylinder_pt1 = 0
         self.cylinder_pt2 = 0
 
         self.kicked_idxs = []
         self.scatter = False
+        self.multiple_nucleons = 0
 
         self.interactions = GeantData(mfp)
+
+        # Testing
+        self.mfp = mfp
+        self.test_cascade = test_cascade
 
     @property
     def number_nucleons(self):
