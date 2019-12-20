@@ -71,7 +71,7 @@ class Vec3:
         return [self.x, self.y, self.z]
 
     @property
-    def array(self):
+    def asarray(self):
         """ The three-vector as a np.array """
         return np.array([self.x, self.y, self.z])
 
