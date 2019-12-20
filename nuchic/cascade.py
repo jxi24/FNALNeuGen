@@ -314,7 +314,7 @@ class FSI:
                                                  axis=-1) <= const))
 
     @timing
-    def interacted(self, idx, sigma):
+    def allowed_interactions(self, idx):
         ''' Decides if an interaction occurred for a propagating particle
         within given time step
 
@@ -344,40 +344,111 @@ class FSI:
         # Ensure not in formation zone
         if self.nucleons[idx].is_in_formation_zone():
             self.nucleons[idx].propagate(self.time_step)
-            return np.array([])
+            return None, None
 
-        # Builds up cylinder
-        self.cylinder_pt1 = self.nucleons[idx].pos
-        logging.debug('Before propagate: {}'.format(self.nucleons[idx]))
+        # Build up planes
+        point1 = self.nucleons[idx].pos.asarray
+        logging.debug('Before propagate: %s', self.nucleons[idx])
         self.nucleons[idx].propagate(self.time_step)
-        self.cylinder_pt2 = self.nucleons[idx].pos
-        cylinder_r = np.sqrt(sigma/np.pi)
-#        key = False
-        # Check if any particle (except propagating one) is within cylinder
-        # Stops when first is found (not closest one)
-        # TODO: optimize with self.n_particles?
+        point2 = self.nucleons[idx].pos.asarray
+
+        # Get indices for other nucleons
         idxs = np.arange(len(self.nucleons))
         idxs = idxs[np.where(idxs != idx)]
-        in_cylinder = False
 
         positions = []
         for i in idxs:
             if self.nucleons[i].is_final() or \
                     self.nucleons[i].is_in_formation_zone():
                 idxs = idxs[np.where(idxs != i)]
-                continue
-            logging.debug('Index: {}, Position: '
-                          '{}'.format(i, self.nucleons[i].pos.vec))
-            positions.append(self.nucleons[i].pos.vec)
-        in_cylinder = self.points_in_cylinder(
-            self.cylinder_pt1.array,
-            self.cylinder_pt2.array,
-            cylinder_r,
-            positions
-        )
-        logging.debug('indices = {}, prop = {}'.format(idxs, idx))
-        logging.debug('in_cylinder = {}'.format(in_cylinder))
-        return idxs[in_cylinder]
+            else:
+                if logging.level_debug():
+                    logging.debug('Index: %i, Position: %s',
+                                  i, self.nucleons[i].pos.vec)
+                positions.append(self.nucleons[i].pos.vec)
+        positions = np.array(positions)
+        between = FSI.between_planes(positions, point1, point2)
+
+        if not np.any(between):
+            return None, None
+
+        mom_vec = self.nucleons[idx].mom.vec3
+        normed_mom = (mom_vec / mom_vec.mag).asarray
+
+        idxs = np.where(idxs > idx, idxs-1, idxs)
+        proj = FSI.project(positions, point1, normed_mom)
+        dist2 = np.where(between,
+                         np.sum((point1 - proj)**2, axis=-1),
+                         np.nan)
+        idxs = np.argsort(dist2)
+        num_finite = np.count_nonzero(np.isfinite(dist2))
+
+        # Debug information
+        if logging.level_debug():
+            logging.debug('indices = %s, prop = %s', idxs, idx)
+            logging.debug('between = %s', between)
+            logging.debug('positions = %s', positions[idxs[between]])
+            logging.debug('dist = %s', np.sqrt(dist2))
+            logging.debug('sorted = %s', idxs)
+
+        return idxs[:num_finite], dist2[idxs][:num_finite]
+
+    @timing
+    def _get_xsec(self, idx):
+        # Calculate sigma_pp and sigma_np cross-sections
+        mom1 = self.nucleons[idx].mom
+
+        p_i = Vec3(*settings().nucleus.generate_momentum())
+        energy = np.sqrt(mN**2+p_i.mag2)
+        mom2 = Vec4(energy, *p_i.vec)
+
+        total_momentum = mom1 + mom2
+
+        # Particle 4-momentum in CoM frame
+        # See PDG2018 Kinematics Eq. 47.6
+        pcm = mom1.mom*mN/total_momentum.mass
+
+        # Fully elastic scattering, protons and neutrons
+        # are being treated equally
+        # TODO: Inelastic scattering
+        try:
+            sigmapp = self.interactions.cross_section('pp', pcm / GEV)
+            sigmanp = self.interactions.cross_section('np', pcm / GEV)
+        except ValueError:  # Fall back on hard-coded if not in table
+            lab_mom1 = mom1.boost_back(mom2.boost_vector()).mom
+            sigmapp = sigma_pp(lab_mom1)
+            sigmanp = sigma_np(lab_mom1)
+
+        return sigmapp, sigmanp, mom2
+
+    @timing
+    def interacted(self, idx, idxs, dist2):
+        """ Calculate which nucleon if any is involved in the interaction. """
+        sigmapp, sigmanp, mom2 = self._get_xsec(idx)
+
+        probs_pp = 1.0/(2*np.pi)*np.exp(-dist2/(2*sigmapp))
+        probs_np = 1.0/(2*np.pi)*np.exp(-dist2/(2*sigmanp))
+
+        pids = np.zeros(len(self.nucleons[idxs]))
+        for i, nuc in enumerate(self.nucleons[idxs]):
+            pids[i] = nuc.pid
+
+        pid = self.nucleons[idx].pid
+        probs = np.where(pid == pids, probs_pp, probs_np)
+
+        if logging.level_debug():
+            logging.debug('sigma = %f, %f', sigmapp, sigmanp)
+            logging.debug('probs_pp = %s', probs_pp)
+            logging.debug('probs_np = %s', probs_np)
+            logging.debug('pid = %i, pids = %s', pid, pids)
+            logging.debug('probs = %s', probs)
+
+        for i, prob in enumerate(probs):
+            if np.random.random() < prob:
+                self.nucleons[idxs[i]].mom = mom2
+                return idxs[i]
+
+        return None
 
     @timing
     def generate_final_phase_space(self, particle1, particle2):
