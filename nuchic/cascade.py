@@ -619,6 +619,12 @@ class FSI:
         # Check for Pauli blocking and return initial particles if it occurred
         really_did_hit = not(self.pauli_blocking(
             p1_out) or self.pauli_blocking(p2_out))
+        if self.test_cascade:
+            really_did_hit = not self.pauli_blocking(p2_out)
+            if particle1.pos.mag < settings().nucleus.radius:
+                really_did_hit = not(self.pauli_blocking(
+                    p1_out) or self.pauli_blocking(p2_out))
+
         if really_did_hit:
             # Assign formation zone
             particle1.set_formation_zone(particle1.mom, p1_out)
