@@ -95,7 +95,8 @@ class Vec4:
         raise Exception('Vec4')
 
     @property
-    def array(self):
+    def asarray(self):
+        """ Return four vector as numpy array. """
         return np.array([self.energy, self.p_x, self.p_y, self.p_z])
 
     def dot(self, other):
