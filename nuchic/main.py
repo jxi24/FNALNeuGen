@@ -254,13 +254,13 @@ class NuChic:
 
         """
         # Initialize FSI
-        self.fsi = FSI(settings().distance*FM)
+        self.fsi = FSI(settings().distance*FM, test_cascade=True)
 
         # Initialize variables
-        radius = 10*FM
-        nscatter_p = []
+        radius = 20*FM
+        nscatter_p = 0
         nscatter_n = 0
-        steps = 800
+        steps = 8000
 
         # Loop over events
         for _ in tqdm(range(self.nevents), ncols=80):
@@ -271,7 +271,7 @@ class NuChic:
 
             position = Vec3(position[0],
                             position[1],
-                            -4)
+                            -2.7)
             momentum = Vec4(np.sqrt(MQE**2 + settings().beam_energy**2),
                             0, 0,
                             settings().beam_energy)
@@ -279,10 +279,11 @@ class NuChic:
             # Perform proton calculation
             proton = Particle(2212, momentum, position)
             self.fsi.kicked_idxs = [len(self.fsi.nucleons)]
-            self.fsi.nucleons.append(proton)
+            self.fsi.nucleons = np.append(self.fsi.nucleons, proton)
             self.fsi.nucleons[-1].status = -2
-            output = self.fsi(steps)
-            nscatter_p.append(float(len([x for x in output if x.pid == 2212])))
+            status = self.fsi(steps)
+            if status == 1:
+                nscatter_p += 1.0
             self.fsi.reset()
 
             # Perform neutron calculation
@@ -295,8 +296,6 @@ class NuChic:
             #     nscatter_n += 1
             # self.fsi.reset()
 
-        print(nscatter_p)
-        _, nscatter_p = np.unique(np.array(nscatter_p), return_counts=True)
         print(nscatter_p)
         xsec = np.pi*radius**2/float(self.nevents)*np.array(nscatter_p)
         print(np.pi*radius**2)
@@ -322,7 +321,7 @@ class NuChic:
 
             proton = Particle(2212, momentum, position)
             self.fsi.kicked_idxs = [len(self.fsi.nucleons)]
-            self.fsi.nucleons.append(proton)
+            self.fsi.nucleons = np.append(self.fsi.nucleons, proton)
             output = self.fsi(steps)
             if not isinstance(output, list):
                 distances.append(output)
