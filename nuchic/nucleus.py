@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation
 from absl import logging
+from scipy import interpolate
 
 # from nuChic.particle import Particle
 from .constants import MEV, MQE as mN
@@ -87,6 +88,11 @@ class Nucleus:
             raise NotImplementedError('The nucleus with {} protons and {} '
                                       'neutrons is currently not '
                                       'implemented.'.format(Z, Z-A))
+
+        test_density = pd.read_csv('~/Documents/Projects/NeutrinoGenerator/FNALNeuGen/densities/c12.density', header=10,
+                sep='\s+', names=['r', 'rho', 'error'])
+        self.test_density = interpolate.InterpolatedUnivariateSpline(test_density['r'].values,
+                test_density['rho'], k=1)
 
     @staticmethod
     def make_nucleus(name, binding, kf, config_type):
