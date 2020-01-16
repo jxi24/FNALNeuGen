@@ -426,8 +426,8 @@ class FSI:
         """ Calculate which nucleon if any is involved in the interaction. """
         sigmapp, sigmanp, mom2 = self._get_xsec(idx)
 
-        probs_pp = 1.0/(2*np.pi)*np.exp(-dist2/(2*sigmapp))
-        probs_np = 1.0/(2*np.pi)*np.exp(-dist2/(2*sigmanp))
+        probs_pp = 1.0/(2*np.pi)*np.exp(-dist2/(2*sigmapp/10))
+        probs_np = 1.0/(2*np.pi)*np.exp(-dist2/(2*sigmanp/10))
 
         pids = np.zeros(len(self.nucleons[idxs]))
         for i, nuc in enumerate(self.nucleons[idxs]):
