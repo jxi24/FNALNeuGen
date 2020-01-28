@@ -1,6 +1,6 @@
 """ Implement PDF interface class. """
 
-from absl import logging
+# from absl import logging
 
 try:
     import lhapdf

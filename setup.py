@@ -113,6 +113,7 @@ setup(
         'matplotlib',
         'tqdm',
         'pyyaml',
+        'scipy',
     ],
     entry_points={'console_scripts': ['nuchic = nuchic.main:nuchic', ], },
     ext_modules=[CMakeExtension('nuchic')],
