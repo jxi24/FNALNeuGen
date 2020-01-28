@@ -31,5 +31,6 @@ execute_process(COMMAND git submodule update --init -- external/pybind11
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(external/pybind11)
 # execute_process(COMMAND python -c "import pybind11; print(pybind11.get_include())" OUTPUT_VARIABLE pybind11_INCLUDE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+message(${PYBIND11_INCLUDE_DIR})
 
 add_subdirectory(src/nuchic)
