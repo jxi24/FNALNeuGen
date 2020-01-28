@@ -12,10 +12,6 @@ matrix:
           os: linux
           env: PYTHON=3.6
 
-        - name: "Python 3.7.1 on Xenial Linux"
-          os: linux
-          env: PYTHON=3.7
-
         - name: "Python 3.7.4 on macOS"
           os: osx
           env: PYTHON=3.7
