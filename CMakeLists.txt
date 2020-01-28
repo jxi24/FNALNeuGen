@@ -21,10 +21,10 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
 find_package(Python REQUIRED COMPONENTS Development)
 
 # Pull down pybind11 submodule
- execute_process(COMMAND git submodule update --init -- external/pybind11
-                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+execute_process(COMMAND git submodule update --init -- external/pybind11
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(external/pybind11)
-
+# execute_process(COMMAND python -c "import pybind11; print(pybind11.get_include())" OUTPUT_VARIABLE pybind11_INCLUDE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 # Find HDF5
 find_package(HDF5 REQUIRED COMPONENTS CXX)
@@ -41,7 +41,7 @@ add_library(utilities SHARED
     src/nuchic/ThreeVector.cc
     src/nuchic/Utilities.cc
 )
-target_include_directories(utilities PRIVATE ${NUCHIC_INCLUDES} ${Python_INCLUDE_DIRS})
+target_include_directories(utilities PRIVATE ${NUCHIC_INCLUDES} PUBLIC ${Python_INCLUDE_DIRS})
 
 set(NUCHIC_LIBS ${NUCHIC_LIBS} utilities)
 
