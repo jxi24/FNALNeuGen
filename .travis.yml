@@ -36,7 +36,7 @@ before_install:
     source venv/bin/activate
     pip install numpy
 install:
-- pip install ".[test]" --verbose .
+- pip install ".[test]" --verbose -e .
 script:
 - pytest
 
