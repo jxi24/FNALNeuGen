@@ -25,11 +25,9 @@ cache:
 before_install:
 - |
     if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-        brew update; brew reinstall python3;
-        pip3 install --user --upgrade pip virtualenv
-    else
-        pip install --user --upgrade pip virtualenv
+        brew update; brew unlink python@2; brew reinstall python3; brew link --overwrite python;
     fi
+    pip3 install --user --upgrade pip virtualenv
     virtualenv -p python$PYTHON venv
     source venv/bin/activate
     which python
