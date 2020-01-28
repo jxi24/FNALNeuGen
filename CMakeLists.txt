@@ -35,4 +35,6 @@ message("${pybind11_INCLUDE_DIR}")
 execute_process(COMMAND ls ${PYBIND11_INCLUDE_DIR}/pybind11 OUTPUT_VARIABLE tmp)
 message(${tmp})
 
+include_directories(${PYBIND11_INCLUDE_DIR})
+
 add_subdirectory(src/nuchic)
