@@ -6,7 +6,7 @@ from absl import flags
 from absl import logging
 import numpy as np
 
-import xsec
+# import xsec
 from .four_vector import Vec4
 from .constants import MEV, HBARC, MQE, TO_NB
 from .folding import Folding
