@@ -38,7 +38,7 @@ before_install:
 install:
 - |
     python setup.py sdist
-    pip install --verbose -e dist/*.tar.gz
+    pip install ".[test]" --verbose dist/*.tar.gz
 script:
 - pytest
 

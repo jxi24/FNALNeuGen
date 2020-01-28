@@ -16,6 +16,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Setup CMake Directory
 set(NUCHIC_CMAKE_DIR "${NUCHIC_SOURCE_DIR}/CMake")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
+include(PyLink)
 
 # Check for python development environment
 find_package(Python REQUIRED COMPONENTS Development)
@@ -30,11 +31,6 @@ link_directories(${NUCHIC_BUILD_INSTALL_PREFIX}/lib)
 execute_process(COMMAND git submodule update --init -- external/pybind11
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(external/pybind11)
-message(${PYBIND11_INCLUDE_DIR})
-message("${pybind11_INCLUDE_DIR}")
-execute_process(COMMAND ls ${PYBIND11_INCLUDE_DIR}/pybind11 OUTPUT_VARIABLE tmp)
-message(${tmp})
-
 include_directories(${PYBIND11_INCLUDE_DIR})
 
 add_subdirectory(src/nuchic)
