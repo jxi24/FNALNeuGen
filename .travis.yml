@@ -36,9 +36,7 @@ before_install:
     source venv/bin/activate
     pip install numpy
 install:
-- |
-    python setup.py sdist
-    pip install ".[test]" --verbose dist/*.tar.gz
+- pip install ".[test]" --verbose .
 script:
 - pytest
 

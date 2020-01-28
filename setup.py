@@ -114,6 +114,7 @@ setup(
         'tqdm',
         'pyyaml',
         'scipy',
+        'h5py',
     ],
     entry_points={'console_scripts': ['nuchic = nuchic.main:nuchic', ], },
     ext_modules=[CMakeExtension('nuchic')],

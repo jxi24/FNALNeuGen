@@ -5,7 +5,7 @@
 try:
     import lhapdf
 except ImportError:
-    logging.warn('Could not find lhapdf. Using dummy class.')
+    # logging.warn('Could not find lhapdf. Using dummy class.')
     lhapdf = None
 
 
