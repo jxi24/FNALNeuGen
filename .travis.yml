@@ -25,7 +25,7 @@ cache:
 before_install:
 - |
     if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-        brew update; brew install python3;
+        brew update; brew reinstall python3;
         pip3 install --user --upgrade pip3 virtualenv
     else
         pip install --user --upgrade pip virtualenv
