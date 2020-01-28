@@ -32,6 +32,8 @@ before_install:
     fi
     virtualenv -p python$PYTHON venv
     source venv/bin/activate
+    which python
+    python --version
     pip install numpy
 install:
 - pip install ".[test]" --verbose -e .
