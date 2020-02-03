@@ -14,6 +14,7 @@ matrix:
 
         - name: "Python 3.7.4 on macOS"
           os: osx
+          osx_image: xcode10.2
           env: PYTHON=3.7
 
 cache: 
