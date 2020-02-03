@@ -26,14 +26,17 @@ cache:
 before_install:
 - |
     if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-        brew update; brew install pyenv;
-        pyenv install 3.7.3; pyenv global 3.7.3;
-        pyenv version
-        which python
-        python --version
+        brew update; brew install openssl readline
+        brew outdated pyenv || brew update pyenv
+        brew install pyenv-virtualenv
+        pyenv install $PYTHON;
+        export PYENV_VERSION=$PYTHON
+        export PATH="/Users/travis/.pyenv/shims:${PATH}"
+        pyenv-virtualenv venv
+    else
+        pip install --user --upgrade pip virtualenv
+        virtualenv -p python$PYTHON venv
     fi
-    pip install --user --upgrade pip virtualenv
-    virtualenv -p python$PYTHON venv
     source venv/bin/activate
     which python
     python --version
