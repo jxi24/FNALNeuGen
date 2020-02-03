@@ -15,6 +15,7 @@ matrix:
         - name: "Python 3.7.4 on macOS"
           os: osx
           osx_image: xcode10.2
+          language: generic
           env: PYTHON=3.7
 
 cache: 
@@ -26,17 +27,11 @@ cache:
 before_install:
 - |
     if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-        brew update; brew install openssl readline
-        brew outdated pyenv || brew update pyenv
-        brew install pyenv-virtualenv
-        pyenv install $PYTHON;
-        export PYENV_VERSION=$PYTHON
-        export PATH="/Users/travis/.pyenv/shims:${PATH}"
-        pyenv-virtualenv venv
+        brew update; brew install python3
     else
         pip install --user --upgrade pip virtualenv
-        virtualenv -p python$PYTHON venv
     fi
+    virtualenv -p python$PYTHON venv
     source venv/bin/activate
     which python
     python --version
