@@ -18,6 +18,7 @@ using InteractionDistances = std::vector<std::pair<std::size_t, double>>;
 class Cascade {
     public:
         // Constructor and Destructor
+        //TODO: Add explicity units. "dist = 0.05 FM" or similar
         Cascade(const std::shared_ptr<Interactions> interactions, const double& dist = 0.05) 
             : distance(dist), m_interactions(interactions) {}
         ~Cascade() {}
