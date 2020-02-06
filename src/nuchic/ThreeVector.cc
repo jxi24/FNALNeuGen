@@ -91,13 +91,18 @@ bool ThreeVector::operator==(const ThreeVector& other) const noexcept {
 }
 
 const std::string ThreeVector::ToString() const noexcept {
-    return "ThreeVector(" + std::to_string(vec[0]) + ", " 
-        + std::to_string(vec[1]) + ", " + std::to_string(vec[2]) + ")";
+    return "ThreeVector(" 
+        + std::to_string(vec[0]) + ", " 
+        + std::to_string(vec[1]) + ", " 
+        + std::to_string(vec[2]) + ")";
 }
 
 
 std::ostream& operator<<(std::ostream& os, const ThreeVector& vec) {
-    os << "ThreeVector(" << vec.Px() << ", " << vec.Py() << ", " << vec.Pz() << ")";
+    os << "ThreeVector(" 
+       << vec.Px() << ", " 
+       << vec.Py() << ", " 
+       << vec.Pz() << ")";
     return os;
 }
 

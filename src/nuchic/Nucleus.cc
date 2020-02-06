@@ -9,6 +9,7 @@
 #include "nuchic/Nucleus.hh"
 #include "nuchic/Utilities.hh"
 
+//TODO: move constant to singleton class
 const double mN = 938;
 
 const std::map<int, std::string> Nucleus::ZToName = {
@@ -38,7 +39,9 @@ Nucleus::Nucleus(const int& Z, const int& A, const double& bEnergy,
     nucleons.resize(A);
     protons.resize(Z);
     neutrons.resize(A-Z);
+    // 0.16 is average nuclear density in [nucleons / fm^3]
     radius = pow(A / (4.0 / 3.0 * M_PI * 0.16), 1.0 / 3.0);
+    //TODO: Add reference for this formula (NuWro?)
     potential = sqrt(mN*mN + pow(fermiMomentum, 2)) - mN + 8;
 }
 
@@ -60,7 +63,7 @@ bool Nucleus::Escape(Particle& particle) noexcept {
     if(particle.Status() == -2) return true;
 
     // Calculate kinetic energy, and if less than potential it is captured
-    const double totalEnergy = sqrt(particle.Momentum().P2() + particle.Momentum().M2());
+    const double totalEnergy = particle.Momentum().E();
     const double kineticEnergy = totalEnergy - particle.Mass();
     if(kineticEnergy < potential) return false;
 

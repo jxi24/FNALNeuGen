@@ -8,7 +8,6 @@ FourVector::FourVector(const ThreeVector& other, const double& E) noexcept
 
 const double FourVector::M() const noexcept {
     const double m2 = M2();
-    if(std::abs(m2) < 1E-6) return 0;
     return sqrt(m2);
 }
 
@@ -141,12 +140,19 @@ bool FourVector::operator==(const FourVector& other) const noexcept {
 }
 
 const std::string FourVector::ToString() const noexcept {
-    return "FourVector(" + std::to_string(vec[0]) + ", " + std::to_string(vec[1])
-        + ", " + std::to_string(vec[2]) + ", " + std::to_string(vec[3]) + ")";
+    return "FourVector(" 
+        + std::to_string(vec[0]) + ", " 
+        + std::to_string(vec[1]) + ", " 
+        + std::to_string(vec[2]) + ", " 
+        + std::to_string(vec[3]) + ")";
 }
 
 std::ostream& operator<<(std::ostream& os, const FourVector& vec) {
-    os << "FourVector(" << vec.Px() << ", " << vec.Py() << ", " << vec.Pz() << ", " << vec.E() << ")";
+    os << "FourVector(" 
+       << vec.Px() << ", " 
+       << vec.Py() << ", " 
+       << vec.Pz() << ", " 
+       << vec.E() << ")";
     return os;
 }
 
