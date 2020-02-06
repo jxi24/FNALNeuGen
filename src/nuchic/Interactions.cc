@@ -7,6 +7,7 @@
 #include "nuchic/ThreeVector.hh"
 #include "nuchic/Utilities.hh"
 
+//TODO: move constant to singleton class
 #define FM 1.0
 #define TO_NB 1e6
 #define MEV 1.0
@@ -55,40 +56,6 @@ double CrossSection(bool samePID, const double& pcm) {
     throw std::domain_error("Invalid energy!");
 }
 
-double CrossSectionLab(bool samePID, const double& pLab) noexcept {
-    const double tLab = sqrt(pow(pLab, 2) + pow(MN, 2)) - MN;
-    if(samePID) {
-        if(pLab < 1.8 * GEV) {
-            if(tLab >= 25 * MEV)
-                return (1.0+HZETRN["a"]/tLab) * (40+109.0*std::cos(HZETRN["b"]*sqrt(tLab))
-                        * exp(-HZETRN["c"]*pow(tLab-HZETRN["d"], 0.258)));
-            else
-                return exp(6.51*exp(-pow(tLab/HZETRN["e"], 0.7)));
-        } else if(pLab <= 4.7 * GEV) {
-            return JWN["gamma"]/pow(pLab, 0.16);
-        } else {
-            double ecm2 = 2*MN*(MN+sqrt(pow(pLab, 2) + pow(MN, 2)));
-            return PDG["Zpp"] + PDG["B"]*pow(log(ecm2/PDG["s0"]), 2)
-                + PDG["Y1pp"]*pow(PDG["s1"]/ecm2, PDG["n1"])
-                - PDG["Y2pp"]*pow(PDG["s1"]/ecm2, PDG["n2"]);
-        }
-    } else {
-        if(pLab < 0.5 * 1e3) {
-            if(tLab >= 0.1 * MEV)
-                return 38.0 + 12500.0*exp(-HZETRN["f"]*pow(tLab-HZETRN["g"], 0.35));
-            else
-                return 26000 * exp(-pow(tLab/HZETRN["h"], 0.3));
-        } else if(pLab <= 2.0 * 1e3) {
-            return 40 + 10*cos(JWN["alpha"]*pLab - 0.943)
-                * exp(-JWN["beta"]*pow(pLab, 0.8)+2);
-        } else {
-            double ecm2 = 2*MN*(MN+sqrt(pow(pLab, 2) + pow(MN, 2)));
-            return PDG["Zpn"] + PDG["B"]*pow(log(ecm2/PDG["s0"]), 2)
-                + PDG["Y1pn"]*pow(PDG["s1"]/ecm2, PDG["n1"])
-                - PDG["Y2pn"]*pow(PDG["s1"]/ecm2, PDG["n2"]);
-        }
-    }
-}
 
 double CrossSectionAngle(bool samePID, const double& pcm, const double& ran) {
     // For testing right now
@@ -123,12 +90,12 @@ double Interactions::CrossSectionLab(bool samePID, const double& pLab) const noe
                 - PDG["Y2pp"]*pow(PDG["s1"]/ecm2, PDG["n2"]);
         }
     } else {
-        if(pLab < 0.5 * 1e3) {
+        if(pLab < 0.5 * GEV) {
             if(tLab >= 0.1 * MEV)
                 return 38.0 + 12500.0*exp(-HZETRN["f"]*pow(tLab-HZETRN["g"], 0.35));
             else
                 return 26000 * exp(-pow(tLab/HZETRN["h"], 0.3));
-        } else if(pLab <= 2.0 * 1e3) {
+        } else if(pLab <= 2.0 * GEV) {
             return 40 + 10*cos(JWN["alpha"]*pLab - 0.943)
                 * exp(-JWN["beta"]*pow(pLab, 0.8)+2);
         } else {
@@ -231,21 +198,21 @@ double GeantInteractions::CrossSection(const Particle& particle1,
 
     try {
         if(samePID)
-            return m_crossSectionPP(pcm/1000);
+            return m_crossSectionPP(pcm/GEV);
         else
-            return m_crossSectionNP(pcm/1000);
+            return m_crossSectionNP(pcm/GEV);
     } catch (std::domain_error &e) {
         FourVector momentum1 = particle1.Momentum();
         FourVector momentum2 = particle2.Momentum();
         FourVector labMomentum = momentum1.Boost(-momentum2.BoostVector());
-        return CrossSectionLab(samePID, labMomentum.Vec3().Magnitude()/1000);
+        return CrossSectionLab(samePID, labMomentum.Vec3().Magnitude()/GEV);       
     }
 }
 
 ThreeVector GeantInteractions::MakeMomentum(bool samePID, const double& p1CM,
         const double& pcm, const std::array<double, 2>& rans) const {
     double pR = p1CM;
-    double pTheta = CrossSectionAngle(samePID, pcm/1000, rans[0]);
+    double pTheta = CrossSectionAngle(samePID, pcm/GEV, rans[0]);    
     double pPhi = 2*M_PI*rans[1];
 
     return ThreeVector(ToCartesian({pR, pTheta, pPhi}));
