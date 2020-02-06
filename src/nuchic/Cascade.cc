@@ -10,23 +10,28 @@
 #define HBARC 200
 #define mN 938
 
-Particles Cascade::Kick(const Particles& particles, const FourVector& energyTransfer,
+Particles Cascade::Kick(
+        const Particles& particles, 
+        const FourVector& energyTransfer,
         const std::array<double, 2>& sigma) {
     std::vector<std::size_t> indices;
 
+    // Interact with protons or neutrons according to their cross section
     auto ddSigma = {sigma[0], sigma[1]};
     std::size_t index = rng.variate<int, std::discrete_distribution>(ddSigma);
-
     int interactPID = index == 0 ? 2212 : 2112;
-
+    
+    // Restrict to particles of chosen species
     for(std::size_t i = 0; i < particles.size(); ++i) {
         if(particles[i].PID() == interactPID) indices.push_back(i);
     }
 
+    // Kick a single particle from the list
     kickedIdxs.push_back(rng.pick(indices));
     Particles result = particles;
     result[kickedIdxs.back()].SetStatus(-1);
-    result[kickedIdxs.back()].SetMomentum(result[kickedIdxs.back()].Momentum() + energyTransfer);
+    auto final_momentum = result[kickedIdxs.back()].Momentum() + energyTransfer;
+    result[kickedIdxs.back()].SetMomentum(final_momentum);
 
     return result;
 }
@@ -35,16 +40,19 @@ void Cascade::Reset() {
     kickedIdxs.resize(0);
 }
 
-Particles Cascade::operator()(const Particles& _particles, const double& kf, const double& radius2,
+// Run the cascade model.
+Particles Cascade::operator()(
+        const Particles& _particles,
+        const double& kf,
+        const double& radius2,
         const std::size_t& maxSteps) {
-
     Particles particles = _particles;
     fermiMomentum = kf;
     for(std::size_t step = 0; step < maxSteps; ++step) {
         // Stop loop if no particles are propagating
         if(kickedIdxs.size() == 0) break;
         
-        // Adapt time step
+        // Adapt timeStep
         AdaptiveStep(particles, distance);
 
         // Make local copy of kickedIdxs
@@ -110,8 +118,10 @@ Particles Cascade::operator()(const Particles& _particles, const double& kf, con
     return particles;
 }
 
+/// Convert a time step in [fm] to [1/MeV].
+/// timeStep = distance / max("betas of all kicked particles") / hbarc
 void Cascade::AdaptiveStep(const Particles& particles, const double& distance) noexcept {
-    double beta = 0;
+    double beta = 0;  // dimensionless numbers in [0,1)
     for(auto idx : kickedIdxs) {
         if(particles[idx].Beta().Magnitude() > beta)
             beta = particles[idx].Beta().Magnitude();
@@ -120,21 +130,44 @@ void Cascade::AdaptiveStep(const Particles& particles, const double& distance) n
     timeStep = distance/(beta*HBARC);
 }
 
-bool Cascade::BetweenPlanes(const ThreeVector& position, const ThreeVector& point1, const ThreeVector& point2) const noexcept {
-    // Get distance between planes
-    const ThreeVector dist = point2 - point1;
+/// Determine whether "position" is between the two planes orthogonal to the
+/// displacement "point2 - point1" and containing the points "point1" and 
+/// "point2,"" respectively.
+bool Cascade::BetweenPlanes(
+        const ThreeVector& position,
+        const ThreeVector& point1,
+        const ThreeVector& point2) const noexcept {
+    const ThreeVector dist = point2 - point1;  // distance between plances
 
-    // Determine if point is between planes
-    return ((position - point1).Dot(dist) >= 0 && (position - point2).Dot(dist) <=0);
+    return (
+        (position - point1).Dot(dist) >= 0 && 
+        (position - point2).Dot(dist) <=0);
 }
 
-const ThreeVector Cascade::Project(const ThreeVector& position,
-        const ThreeVector& planePt, const ThreeVector& planeVec) const noexcept {
-    // Project point onto a plane
+/// Project the vector "position" onto the plane containing the point "planePt"
+/// and orthogonal to the vector "planeVec" by subtracting off the projection
+/// of "position - planePt" onto the normal vector "planceVec".
+const ThreeVector Cascade::Project(
+        const ThreeVector& position,
+        const ThreeVector& planePt,
+        const ThreeVector& planeVec) const noexcept {
     const ThreeVector projection = (position - planePt).Dot(planeVec)*planeVec; 
     return position - projection;
 }
 
+/// Get a sorted list of allowed InteractionDistances, i.e., of pairs
+/// (index, distance). Allowed interactions are those between the planes 
+/// orthogonal to the momentum of the specified particle and located at 
+/// (i) the particle's current position and 
+/// (ii) the particle's position after propagating for "timeStep".
+/// For example, in the diagram below, interaction with A is allowed, while 
+/// interactions with B and C are not allowed.
+///    plane1  plane2
+///      |   A   |
+///      |       |
+///      x---->  |
+///      |       |   B 
+///  C   |       |
 const InteractionDistances Cascade::AllowedInteractions(Particles& particles,
         const std::size_t& idx) const noexcept {
     InteractionDistances results;
@@ -154,6 +187,7 @@ const InteractionDistances Cascade::AllowedInteractions(Particles& particles,
         // if(particles[i].InFormationZone()) continue;
         if(!BetweenPlanes(particles[i].Position(), point1, point2)) continue;
         auto projectedPosition = Project(particles[i].Position(), point1, normedMomentum);
+        // (Squared) distance in the direction orthogonal to the momentum 
         double dist2 = (projectedPosition - point1).Magnitude2();
 
         results.push_back(std::make_pair(i, dist2));
@@ -169,14 +203,22 @@ const double Cascade::GetXSec(const Particle& particle1, const Particle& particl
     return m_interactions -> CrossSection(particle1, particle2);
 }
 
+/// Decide whether or not an interaction occured.
+/// The total probability is normalized to the cross section "sigma" when 
+/// integrated over the plane.
 int Cascade::Interacted(const Particles& particles, const Particle& kickedParticle,
         const InteractionDistances& dists) noexcept {
     for(auto dist : dists) {
+        // cross section in mb
         const double xsec = GetXSec(kickedParticle, particles[dist.first]);
+        // 1 barn = 100 fm^2, so 1 mb = 0.1 fm^2.
+        // Thus: (xsec [mb]) x (0.1 [fm^2]/ 1 [mb]) = 0.1 xsec [fm^2]
+        // dist.second is fm^2; factor of 10 converts mb to fm^2
         const double prob = 1.0/(2.0*M_PI)*exp(-dist.second/(2*xsec/10.));
+        // the index of the particle which interacted
         if(rng.uniform(0.0, 1.0) < prob) return dist.first;
     }
-
+    // no interaction
     return -1;
 }
 
@@ -189,6 +231,7 @@ bool Cascade::FinalizeMomentum(Particle& particle1, Particle& particle2) noexcep
     // Generate outgoing momentum
     bool samePID = particle1.PID() == particle2.PID(); 
     double ecm = (p1CM + p2CM).E();
+    // See PDG 2018, Kinematics, Eq 47.6
     const double pcm = particle1.Momentum().Vec3().Magnitude() * mN / ecm;
     std::array<double, 2> rans;
     rng.generate(rans, 0.0, 1.0);
