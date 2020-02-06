@@ -76,7 +76,7 @@ class CalcCrossSection(RunMode):
 
         # Initialize base class and additional variables
         super().__init__()
-        self.radius = 10
+        self.radius = 10  ## Units?
         self.pid = 2212
         interaction = interactions.Interactions.create(settings().get_param('interaction'))
         self.fsi = cascade.Cascade(interaction)
@@ -92,16 +92,20 @@ class CalcCrossSection(RunMode):
                 break
 
         # Add test particle to the rest of them
-        position = vectors.Vector3(position[0], position[1], -2.5)
-        energy = settings().beam_energy
+        # Note: the radius of a carbon nucleus is roughly 2.5 fm
+        z_start_position = -2.5  # [fm]
+        z_end_position = +2.5  # [fm]
+        position = vectors.Vector3(position[0], position[1], z_start_position)
+        energy = settings().beam_energy  # "kinetic energy," i.e., momentum
         nucleon_mass = settings().get_param('mn')
         momentum = vectors.Vector4(0, 0, energy, np.sqrt(energy**2+nucleon_mass**2))
-        test_part =  particle.Particle(self.pid, momentum, position, -2)
+        # status = -2 for external nuclear probe
+        test_part = particle.Particle(self.pid, momentum, position, -2)
         particles.append(test_part)
         self.fsi.set_kicked(len(particles)-1)
         particles = self.fsi(particles,
                              self.nucleus.fermi_momentum(),
-                             2.5**2)
+                             z_end_position**2)
 
         return particles
 
