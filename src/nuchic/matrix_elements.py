@@ -9,6 +9,8 @@ SW2 = 0.23122
 MASS_BOTTOM = 4.18
 MASS_CHARM = 1.29
 
+CM2_per_PB = 1E-36  # 1 pb = 10^(-36) cm^2
+HBARC2 = 3.8937966E+8  # GeV^2 * pb
 
 def main():
     """ Main function for testing. """
@@ -22,7 +24,7 @@ def main():
     parser.add_argument(
         '-E',
         '--Energy',
-        default=100,
+        default=100, #TODO units??
         type=float,
         help='Energy of neutrino beam')
     parser.add_argument(
@@ -35,7 +37,7 @@ def main():
     # Parse input arguments
     args = vars(parser.parse_args())
     energy1 = args['Energy']
-    energy2 = 1.0
+    energy2 = 1.0  #TODO units??
     nevents = args['nevents']
 
     # Arrays to hold the histograms and the weight of each event
@@ -46,10 +48,6 @@ def main():
 
     # Initialize the phase space class
     phase_space = PhaseSpace(energy1, energy2, 4, [0, 1, 0, 1])
-
-    # hbarc2 = 3.8937966 * 10^8 pb*GeV^2 * cm^2/pb (Convert units from 1/GeV^2
-    # to cm^2)
-    hbarc2 = 3.8937966E8 * 1E-36
 
     # Initialize process class for neutral processes
     process = Process(True)
@@ -65,7 +63,9 @@ def main():
                      Particle(13, mom=event[2]), Particle(2212, mom=event[3])]
 
         # Call the Elastic scattering cross-section calculation
-        wgt *= process.elastic(particles) * hbarc2
+        #TODO: Confirm process.elastic(...) returns the cross section in cm^2
+        wgt *= process.elastic(particles)  # cm^2
+        wgt *= HBARC2 * CM2_per_PB  # cm^2 --> GeV^2
 
         # If on the main run, fill the histograms
         if fill:
