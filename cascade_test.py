@@ -1,7 +1,6 @@
 """ Run nuchic over a range of parameters. """
 
 import os
-from mpi4py import MPI
 from string import Template
 import ast
 import numpy as np
@@ -10,12 +9,13 @@ from absl import flags, app
 
 from nuchic.main import NuChic
 from nuchic.constants import MQE
+from mpi4py import MPI
 
 FLAGS = flags.FLAGS
 
 PARAMETERS = ['beam_energy']
 
-
+print(" Start runs ")
 def create_run(parameters, fname):
     """ Create a run card from a dictionary of parameters. """
     template = open('run_template.yml')
@@ -46,7 +46,7 @@ def main(argv):
 
         emin = 10
         emax = 1000
-        energies = np.linspace(emin, emax, (emax-emin)/5+1, dtype='float64')
+        energies = np.linspace(emin, emax, int((emax-emin)/5)+1, dtype='float64')
         energies = np.sqrt(2000*energies)
         xsec_p = np.zeros_like(energies)
         uncertainty = np.zeros_like(energies)
