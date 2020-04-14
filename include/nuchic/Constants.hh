@@ -15,6 +15,7 @@ namespace Constant {
     constexpr double mp = 938.272_MeV;
     constexpr double mn = 939.565_MeV;
     constexpr double mN = (mp + mn) / 2.0;
+    constexpr double mN2 = mN*mN;
 }
 
 }
