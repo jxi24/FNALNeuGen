@@ -17,6 +17,10 @@ class ThreeVector;
 /// component vectors, such as four-position and four-momentum
 class FourVector {
     public:
+        using size_type = typename std::array<double, 4>::size_type;
+        using iterator = typename std::array<double, 4>::iterator;
+        using const_iterator = typename std::array<double, 4>::const_iterator;
+
         /// @name Constructors and Destructors
         ///@{
 
@@ -45,6 +49,18 @@ class FourVector {
 
         /// Default destructor
         ~FourVector() = default;
+        ///@}
+        
+        /// @name Iterators
+        /// @{
+        
+        iterator begin() { return vec.begin(); }
+        const_iterator begin() const { return vec.begin(); }
+        const_iterator cbegin() const { return vec.cbegin(); }
+        iterator end() { return vec.end(); }
+        const_iterator end() const { return vec.end(); }
+        const_iterator cend() const { return vec.cend(); }
+
         ///@}
 
         /// @name Setters
@@ -330,7 +346,7 @@ class FourVector {
         ///@param vec: The four vector to be read into
         friend std::istream& operator>>(std::istream&, FourVector&);
         /// @}
-
+        
     private:
         std::array<double, 4> vec;
 };

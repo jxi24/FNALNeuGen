@@ -60,3 +60,18 @@ else()
             )
     endif()
 endif()
+
+# Fastor
+FetchContent_Declare(
+    extern_fastor
+
+    GIT_REPOSITORY "https://github.com/romeric/Fastor.git"
+    GIT_TAG "V0.5.1"
+    )
+
+FetchContent_GetProperties(extern_fastor)
+if(NOT extern_fastor_POPULATED)
+    FetchContent_Populate(extern_fastor)
+    add_library(fastor INTERFACE)
+    target_include_directories(fastor SYSTEM INTERFACE ${extern_fastor_SOURCE_DIR})
+endif()

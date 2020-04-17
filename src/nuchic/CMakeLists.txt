@@ -5,10 +5,12 @@ add_library(utilities SHARED
     ThreeVector.cc
     Utilities.cc
     ParticleInfo.cc
+    Tensor.cc
 )
 target_include_directories(utilities SYSTEM PUBLIC ${YAML_CPP_INCLUDE_DIR})
 target_link_libraries(utilities PRIVATE project_options project_warnings
-                                PUBLIC spdlog::spdlog pybind11::pybind11 ${YAML_CPP_LIBRARIES})
+                                PUBLIC spdlog::spdlog pybind11::pybind11 ${YAML_CPP_LIBRARIES}
+                                       fastor)
 
 add_library(physics SHARED
     Cascade.cc
@@ -66,3 +68,7 @@ pybind11_add_module(cascade MODULE
 )
 target_link_libraries(cascade PRIVATE project_options project_warnings 
                               PUBLIC physics utilities)
+
+add_executable(tensor Tensor/TestTensor.cc)
+target_link_libraries(tensor PRIVATE project_options project_warnings
+                             PUBLIC physics utilities)
