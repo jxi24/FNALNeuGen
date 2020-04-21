@@ -7,10 +7,9 @@ add_library(utilities SHARED
     ParticleInfo.cc
     Tensor.cc
 )
-target_include_directories(utilities SYSTEM PUBLIC ${YAML_CPP_INCLUDE_DIR})
+target_include_directories(utilities PUBLIC ${yaml-cpp_INCLUDE_DIRS})
 target_link_libraries(utilities PRIVATE project_options project_warnings
-                                PUBLIC spdlog::spdlog pybind11::pybind11 ${YAML_CPP_LIBRARIES}
-                                       fastor)
+                                PUBLIC spdlog::spdlog pybind11::pybind11 yaml-cpp fastor)
 
 add_library(physics SHARED
     Cascade.cc
