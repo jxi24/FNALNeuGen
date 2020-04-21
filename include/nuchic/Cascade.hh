@@ -41,9 +41,13 @@ class Cascade {
         ///@param dist: The maximum distance step to take when propagating
         ///TODO: Should the ProbabilityType be part of the interaction class or the cascade class?
         Cascade(const std::shared_ptr<Interactions>,  const ProbabilityType&, const double&);
+        Cascade(const Cascade&) = default;
+        Cascade(Cascade&&) = default;
+        Cascade& operator=(const Cascade&) = default;
+        Cascade& operator=(Cascade&&) = default;
 
         /// Default destructor
-        ~Cascade() {}
+        ~Cascade() = default;
         ///@}
 
         /// @name Functions
@@ -68,23 +72,20 @@ class Cascade {
         /// the background.
         ///@param nucleus: The nucleus to evolve
         ///@param maxSteps: The maximum steps to take in the cascade
-        Particles Evolve(std::shared_ptr<Nucleus>, const Particle&,
-                         const std::size_t& maxSteps=1000000);
+        void Evolve(std::shared_ptr<Nucleus>, const std::size_t& maxSteps);
 
         /// Simulate evolution of a kicked particle until it interacts for the 
         /// first time with another particle, accumulating the total distance
         /// traveled by the kicked particle before it interacts.
         ///@param nucleus: The nucleus to evolve according to the mean free path calculation
         ///@param maxSteps: The maximum steps to take in the particle evolution
-        Particles MeanFreePath(std::shared_ptr<Nucleus>, const Particle&,
-                               const std::size_t& maxSteps=1000000);
+        void MeanFreePath(std::shared_ptr<Nucleus>, const std::size_t& maxSteps);
 
         /// Simulate the cascade until all particles either escape, are recaptured, or are in 
         /// the background. This is done according to the NuWro algorithm.
         ///@param nucleus: The nucleus to evolve according to the NuWro method of cascade
         ///@param maxSteps: The maximum steps to take in the particle evolution
-	Particles NuWro(std::shared_ptr<Nucleus>, const Particle&, 
-                        const std::size_t& maxSteps=1000000);
+	void NuWro(std::shared_ptr<Nucleus>, const std::size_t& maxSteps);
         ///@}
     private:
         // Functions
@@ -102,7 +103,7 @@ class Cascade {
 
         // Variables
         std::vector<std::size_t> kickedIdxs;
-        double distance, timeStep;
+        double distance, timeStep{};
         std::shared_ptr<Interactions> m_interactions;
         std::function<double(double, double)> probability;
         randutils::mt19937_rng rng;
