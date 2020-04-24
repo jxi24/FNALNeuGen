@@ -29,8 +29,30 @@ const std::map<std::size_t, std::string> Nucleus::ZToName = {
 };
 
 Nucleus::Nucleus(const std::size_t& Z, const std::size_t& A, const double& bEnergy,
+<<<<<<< Updated upstream
                          const double& kf, const std::function<Particles()>& _density) 
                         : binding(bEnergy), fermiMomentum(kf), density(_density) {
+=======
+                 const std::string& densityFilename, const FermigasType& fg_type,
+		 std::function<Particles()> _density) 
+                        : binding(bEnergy), density(std::move(_density)) {
+>>>>>>> Stashed changes
+
+    switch(fg_type) {
+        case FermigasType::Local:
+            fermigas = [](const double &b2, const double &sigma) -> double {
+                return exp(-M_PI*b2/sigma);
+            };
+            break;
+        case FermigasType::Global:
+            fermigas = [](const double &b2, const double &sigma) -> double {
+                double b = sqrt(b2);
+                return (135_MeV*sigma)/Constant::HBARC/(2*M_PI*b)*exp(-135_MeV*b/Constant::HBARC); 
+            };
+            break;
+    }
+    double fm=fermigas(2,3);
+    fm=fm*1.0;    
 
     if(Z > A) {
         std::string errorMsg = "Requires the number of protons to be less than the total";
@@ -117,8 +139,13 @@ const std::array<double, 3> Nucleus::GenerateMomentum() noexcept {
 }
 
 Nucleus Nucleus::MakeNucleus(const std::string& name, const double& bEnergy,
+<<<<<<< Updated upstream
                                              const double& fermiMomentum,
                                              const std::function<Particles()>& density) {
+=======
+                             const std::string& densityFilename, const FermigasType& fg_type,
+                             const std::function<Particles()>& density) {
+>>>>>>> Stashed changes
     const std::regex regex("([0-9]+)([a-zA-Z]+)");
     std::smatch match;
 
@@ -129,7 +156,11 @@ Nucleus Nucleus::MakeNucleus(const std::string& name, const double& bEnergy,
             "Nucleus: parsing nuclear name '{0}', expecting a density "
             "with A={1} total nucleons and Z={2} protons.", 
             name, nucleons, protons);
+<<<<<<< Updated upstream
         return Nucleus(protons, nucleons, bEnergy, fermiMomentum, density);
+=======
+        return Nucleus(protons, nucleons, bEnergy, densityFilename, fg_type, density);
+>>>>>>> Stashed changes
     }
 
     throw std::runtime_error("Invalid nucleus " + name);

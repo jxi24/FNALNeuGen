@@ -21,6 +21,12 @@ using Particles = std::vector<Particle>;
 /// on if nucleons are captured in the potential or escape.
 class Nucleus {
     public:
+        // Fermigas Model
+        enum FermigasType {
+            Local,
+            Global
+        };
+
         /// @name Constructors and Destructors
         /// @{
 
@@ -31,8 +37,17 @@ class Nucleus {
         ///@param fermiMomentum: The Fermi Momentum of the nucleus
         ///@param density: A function that generates nucleon configurations according 
         ///                to the density profile
+<<<<<<< Updated upstream
         Nucleus(const std::size_t&, const std::size_t&, const double&, const double&,
                 const std::function<Particles()>&);
+=======
+        Nucleus(const std::size_t&, const std::size_t&, const double&, const std::string&,
+                const FermigasType&, std::function<Particles()>);
+        Nucleus(const Nucleus&) = default;
+        Nucleus(Nucleus&&) = default;
+        Nucleus& operator=(const Nucleus&) = default;
+        Nucleus& operator=(Nucleus&&) = default;
+>>>>>>> Stashed changes
 
         /// Default destructor
         ~Nucleus() {};
@@ -172,7 +187,11 @@ class Nucleus {
         ///@param fermiMomentum: The Fermi Momentum of the nucleus
         ///@param density: The density function to use to generate configurations with
         static Nucleus MakeNucleus(const std::string&, const double&,
+<<<<<<< Updated upstream
                                    const double&, const std::function<Particles()>&);
+=======
+                                   const std::string&, const FermigasType&, const std::function<Particles()>&);
+>>>>>>> Stashed changes
 
         /// @name Stream Operators
         /// @{
@@ -188,7 +207,10 @@ class Nucleus {
         std::function<Particles()> density;
 
         static const std::map<std::size_t, std::string> ZToName;
+
         static std::size_t NameToZ(const std::string&);
+        std::function<double(double, double)> fermigas;
+	
 
         randutils::mt19937_rng rng;
 };

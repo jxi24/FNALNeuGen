@@ -89,6 +89,7 @@ std::size_t  Cascade::GetInter(Particles& particles, const Particle& particle1, 
         if (particles[i].Status() < 0) continue;
 	if (particles[i].PID() ==particle1.PID()) index_same.push_back(i);
         else index_diff.push_back(i);
+<<<<<<< Updated upstream
     
    }
     std::size_t idx1=rng.pick(index_same);
@@ -109,6 +110,37 @@ std::size_t  Cascade::GetInter(Particles& particles, const Particle& particle1, 
     if(lambda > stepDistance) {
      particles[idx2].SetMomentum(ptmp);
      return SIZE_MAX;
+=======
+    }
+
+    std::size_t idx1 = rng.pick(index_same);
+    std::size_t idx2 = rng.pick(index_diff);
+    FourVector ptmp1 = particles[idx1].Momentum(); 
+    FourVector ptmp2 = particles[idx2].Momentum(); 
+    
+    double position = particle1.Position().Magnitude();	
+    auto mom1=localNucleus -> GenerateMomentum(position);
+    double energy1 = Constant::mN*Constant::mN;
+    for(auto mom : mom1) energy1 += mom*mom;
+    particles[idx1].SetMomentum(FourVector(mom1[0], mom1[1], mom1[2], sqrt(energy1)));
+   
+
+    auto mom2=localNucleus -> GenerateMomentum(position);
+    double energy2 = Constant::mN*Constant::mN;
+    for(auto mom : mom2) energy2 += mom*mom;
+    particles[idx2].SetMomentum(FourVector(mom2[0], mom2[1], mom2[2], sqrt(energy2)));
+    double rho = localNucleus -> Rho(position);
+    if(rho < 0.0) rho = 0.0;
+    double xsec1 = GetXSec(particle1, particles[idx1]);
+    double xsec2 = GetXSec(particle1, particles[idx2]);
+    double lambda_tilde = 1.0/(xsec1/10*rho+xsec2/10*rho);
+    double lambda = -log(rng.uniform(0.0, 1.0))*lambda_tilde;
+    
+    if(lambda > stepDistance) {
+       particles[idx1].SetMomentum(ptmp1);	    
+       particles[idx2].SetMomentum(ptmp2);
+       return SIZE_MAX;
+>>>>>>> Stashed changes
     }
 //    std:: cout << "idx1" << " " << idx1 << "idx2" << " " << idx2 << "\n";
     
@@ -116,12 +148,23 @@ std::size_t  Cascade::GetInter(Particles& particles, const Particle& particle1, 
 //    std:: cout << "Lambda" << " " << lambda << "\n";    
     double ichoic=rng.uniform(0.0, 1.0);
     if(ichoic< xsec1/(xsec1+xsec2)) {
+<<<<<<< Updated upstream
      particles[idx1].SetPosition(particle1.Position());	    
      particles[idx2].SetMomentum(ptmp);
      return idx1;
     }
     else {
     particles[idx2].SetPosition(particle1.Position());	        	    
+=======
+       particles[idx1].SetPosition(particle1.Position());	    
+       particles[idx2].SetMomentum(ptmp2);
+       return idx1;
+    } 
+
+    particles[idx2].SetPosition(particle1.Position());
+    particles[idx1].SetMomentum(ptmp1);
+    
+>>>>>>> Stashed changes
     return idx2;
     }
 }    
@@ -133,8 +176,14 @@ void Cascade::Reset() {
     kickedIdxs.resize(0);
 }
 
+<<<<<<< Updated upstream
 Particles Cascade::operator()(const Particles& _particles, const double& kf, const double& _radius2,
         const std::size_t& maxSteps) {
+=======
+void Cascade::Evolve(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 100000) {
+    localNucleus = nucleus;
+    Particles particles = nucleus -> Nucleons();
+>>>>>>> Stashed changes
 
     Particles particles = _particles;
     fermiMomentum = kf;
@@ -213,6 +262,12 @@ Particles Cascade::operator()(const Particles& _particles, const double& kf, con
     return particles;
 }
 
+<<<<<<< Updated upstream
+=======
+void Cascade::NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 100000) { 
+    localNucleus = nucleus;
+    Particles particles = nucleus -> Nucleons();
+>>>>>>> Stashed changes
 
 
 
