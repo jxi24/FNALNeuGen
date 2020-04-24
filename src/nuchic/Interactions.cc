@@ -151,7 +151,7 @@ GeantInteractions::GeantInteractions(const std::string& filename) {
     m_cdf = Logspace(cdfMin, cdfMax, nCDF);
 
     // Read in the Geant4 hdf5 file and get the np and pp groups
-    spdlog::info("GeantInteractions: Loading Geant4 data from {0}.", filename);
+    spdlog::info("GeantInteractions: Loading Geant4 data from " + filename);
     H5File file(filename, H5F_ACC_RDONLY);
     Group dataNP(file.openGroup("np")); 
     Group dataPP(file.openGroup("pp"));

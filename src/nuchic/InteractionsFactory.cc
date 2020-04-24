@@ -8,7 +8,7 @@ bool InteractionFactory::Register(const std::string& name,
     auto it = methods().find(name);
     if(it == methods().end()) {
         methods()[name] = funcCreate;
-        spdlog::info("Registered: {}", name);
+        // spdlog::info("Registered: {}", name);
         return true;
     }
     return false;
@@ -24,8 +24,8 @@ std::shared_ptr<Interactions> InteractionFactory::Create(const std::string& name
 }
 
 void InteractionFactory::ListInteractions() {
-    fmt::print("+{:-^30s}+\n|{:^30s}|\n+{:-^30s}+\n", "", "Interactions", "");
-    for(auto method : methods()) {
-        fmt::print(" - {:30s}\n", method.first);
-    }
+    // fmt::print("+{:-^30s}+\n|{:^30s}|\n+{:-^30s}+\n", "", "Interactions", "");
+    // for(auto method : methods()) {
+    //     fmt::print(" - {:30s}\n", method.first);
+    // }
 }

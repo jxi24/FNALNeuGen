@@ -146,7 +146,7 @@ void Cascade::Evolve(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSte
     for(auto particle : particles) {
         if(particle.Status() == ParticleStatus::propagating) {
             std::cout << "\n";
-            for(auto p : particles) spdlog::error("{}", p);
+            for(auto p : particles) std::cout << p << "\n";
             throw std::runtime_error("Cascade has failed. Insufficient max steps.");
         }
     }

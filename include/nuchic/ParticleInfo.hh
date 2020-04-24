@@ -5,10 +5,11 @@
 
 #include <map>
 #include <memory>
-#include <spdlog/spdlog.h>
 #include <string>
 #include <utility>
 #include <functional>
+
+#include "spdlog/spdlog.h"
 
 namespace YAML {
     template<typename T>
@@ -141,7 +142,7 @@ namespace nuchic {
                 if(it != particleDB.end()) 
                     info = it -> second;
                 else
-                    throw std::runtime_error(fmt::format("Invalid PID: id={}", id));
+                    throw std::runtime_error("Invalid PID: id=" + std::to_string(id));
                 if(id < 0 && info -> majorana == 0) anti = true;
             }
 

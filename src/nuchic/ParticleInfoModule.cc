@@ -52,7 +52,7 @@ PYBIND11_MODULE(particle_info, m) {
        .def_property_readonly_static("proton", [](py::object){ return PID::proton(); })
        .def_property_readonly_static("neutron", [](py::object){ return PID::neutron(); })
        // Strings
-       .def("__str__", [](const PID &id){ return fmt::format("{}", id.AsInt()); } )
+       .def("__str__", [](const PID &id){ return std::to_string(id.AsInt()); } )
        // Hash
        .def("__hash__", &PID::AsInt);
 
