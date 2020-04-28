@@ -59,7 +59,7 @@ std::size_t  Cascade::GetInter(Particles& particles, const Particle& particle1, 
 
     for(std::size_t i = 0; i < particles.size(); ++i) {
         if (particles[i].Status() < ParticleStatus::background) continue;
-	if (particles[i].ID() == particle1.ID()) index_same.push_back(i);
+        if (particles[i].ID() == particle1.ID()) index_same.push_back(i);
         else index_diff.push_back(i);
     }
 
@@ -76,16 +76,16 @@ std::size_t  Cascade::GetInter(Particles& particles, const Particle& particle1, 
     double lambda = -log(rng.uniform(0.0, 1.0))*lambda_tilde;
     
     if(lambda > stepDistance) {
-       particles[idx2].SetMomentum(ptmp);
-       return SIZE_MAX;
+        particles[idx2].SetMomentum(ptmp);
+        return SIZE_MAX;
     }
     
     stepDistance=lambda;
     double ichoic=rng.uniform(0.0, 1.0);
     if(ichoic< xsec1/(xsec1+xsec2)) {
-       particles[idx1].SetPosition(particle1.Position());	    
-       particles[idx2].SetMomentum(ptmp);
-       return idx1;
+        particles[idx1].SetPosition(particle1.Position());	    
+        particles[idx2].SetMomentum(ptmp);
+        return idx1;
     } 
 
     particles[idx2].SetPosition(particle1.Position());	        	    
