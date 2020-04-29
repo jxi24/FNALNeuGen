@@ -29,7 +29,8 @@ Cascade::Cascade(const std::shared_ptr<Interactions> interactions,
         case ProbabilityType::Pion:
             probability = [](const double &b2, const double &sigma) -> double {
                 double b = sqrt(b2);
-                return (135_MeV*sigma)/Constant::HBARC/(2*M_PI*b)*exp(-135_MeV*b/Constant::HBARC); 
+                //return (135_MeV*sigma)/Constant::HBARC/(2*M_PI*b)*exp(-135_MeV*b/Constant::HBARC); 
+		return exp(-sqrt(2*M_PI/sigma)*b);
             };
             break;
     }
@@ -58,37 +59,48 @@ std::size_t  Cascade::GetInter(Particles& particles, const Particle& particle1, 
     std::vector<std::size_t> index_same, index_diff;
 
     for(std::size_t i = 0; i < particles.size(); ++i) {
-        if (particles[i].Status() < ParticleStatus::background) continue;
+        if (particles[i].Status() != ParticleStatus::background) continue;
 	if (particles[i].ID() == particle1.ID()) index_same.push_back(i);
         else index_diff.push_back(i);
     }
 
-    std::size_t idx1 = rng.pick(index_same);
-    std::size_t idx2 = rng.pick(index_diff);
-    FourVector ptmp = particles[idx2].Momentum(); 
-    particles[idx2].SetMomentum(particles[idx1].Momentum());
+    if(index_diff.size()==0 && index_same.size()==0) return SIZE_MAX; 
     double position = particle1.Position().Magnitude();	
+    auto mom = localNucleus -> GenerateMomentum(position);
+    double energy = Constant::mN*Constant::mN;
+    for(auto p : mom) energy += p*p;
+
+    std::size_t idx1 = SIZE_MAX;
+    double xsec1 = 0;
+    if(index_same.size() != 0) {
+        idx1 = rng.pick(index_same);
+        particles[idx1].SetMomentum(FourVector(mom[0], mom[1], mom[2], sqrt(energy)));
+        xsec1 = GetXSec(particle1, particles[idx1]);
+    }
+
+    std::size_t idx2 = SIZE_MAX;
+    double xsec2 = 0;
+    if(index_diff.size() != 0) {
+        idx2 = rng.pick(index_diff);
+        particles[idx2].SetMomentum(FourVector(mom[0], mom[1], mom[2], sqrt(energy)));
+        xsec2 = GetXSec(particle1, particles[idx2]);
+    }
+ 
     double rho = localNucleus -> Rho(position);
-    if(rho < 0.0) rho = 0.0;
-    double xsec1 = GetXSec(particle1, particles[idx1]);
-    double xsec2 = GetXSec(particle1, particles[idx2]);
+    if(rho <= 0.0) return SIZE_MAX;
     double lambda_tilde = 1.0/(xsec1/10*rho+xsec2/10*rho);
     double lambda = -log(rng.uniform(0.0, 1.0))*lambda_tilde;
     
-    if(lambda > stepDistance) {
-       particles[idx2].SetMomentum(ptmp);
-       return SIZE_MAX;
-    }
+    if(lambda > stepDistance) return SIZE_MAX;
     
-    stepDistance=lambda;
-    double ichoic=rng.uniform(0.0, 1.0);
-    if(ichoic< xsec1/(xsec1+xsec2)) {
+    stepDistance = lambda;
+    double ichoice = rng.uniform(0.0, 1.0);
+    if(ichoice < xsec1/(xsec1+xsec2)) {
        particles[idx1].SetPosition(particle1.Position());	    
-       particles[idx2].SetMomentum(ptmp);
        return idx1;
     } 
 
-    particles[idx2].SetPosition(particle1.Position());	        	    
+    particles[idx2].SetPosition(particle1.Position());
     return idx2;
 }    
 	
@@ -96,7 +108,7 @@ void Cascade::Reset() {
     kickedIdxs.resize(0);
 }
 
-void Cascade::Evolve(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 10000) {
+void Cascade::Evolve(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 100000) {
     localNucleus = nucleus;
     Particles particles = nucleus -> Nucleons();
 
@@ -154,7 +166,7 @@ void Cascade::Evolve(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSte
     nucleus -> Nucleons() = particles;
 }
 
-void Cascade::NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 10000) { 
+void Cascade::NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 5000000) { 
     localNucleus = nucleus;
     Particles particles = nucleus -> Nucleons();
 
@@ -225,7 +237,10 @@ void Cascade::MeanFreePath(std::shared_ptr<Nucleus> nucleus, const std::size_t& 
     bool hit = false;
     for(std::size_t step = 0; step < maxSteps; ++step) {
         // Are we already outside nucleus?
-        if (kickNuc -> Position().Magnitude() >= nucleus -> Radius()) break;
+        if (kickNuc -> Position().Magnitude() >= nucleus -> Radius()) {
+            kickNuc -> SetStatus(ParticleStatus::escaped);
+            break;
+        }
         AdaptiveStep(particles, distance);
         // Identify nearby particles which might interact
         auto nearby_particles = AllowedInteractions(particles, idx);
@@ -241,6 +256,48 @@ void Cascade::MeanFreePath(std::shared_ptr<Nucleus> nucleus, const std::size_t& 
     }
 
     nucleus -> Nucleons() = particles;
+    Reset();
+}
+
+
+void Cascade::MeanFreePath_NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 10000) {
+    localNucleus = nucleus;
+    Particles particles = nucleus -> Nucleons();
+
+    auto idx = kickedIdxs[0];
+    Particle* kickNuc = &particles[idx];
+    
+    if (kickedIdxs.size() != 1) {
+        std::runtime_error("MeanFreePath: only one particle should be kicked.");
+    }
+    if (kickNuc -> Status() != ParticleStatus::internal_test) {
+        std::runtime_error(
+            "MeanFreePath: kickNuc must have status -3 "
+            "in order to accumulate DistanceTraveled."
+            );
+    }
+    bool hit = false;
+    for(std::size_t step = 0; step < maxSteps; ++step) {
+        // Are we already outside nucleus?
+        if (kickNuc -> Position().Magnitude() >= nucleus -> Radius()) {
+            kickNuc -> SetStatus(ParticleStatus::escaped);
+            break;
+        }
+        //AdaptiveStep(particles, distance);
+        double step_prop = distance;
+        // Did we hit?
+        auto hitIdx = GetInter(particles,*kickNuc,step_prop); 
+        kickNuc -> SpacePropagate(step_prop);	
+       	if (hitIdx == SIZE_MAX) continue;
+        Particle* hitNuc = &particles[hitIdx];
+        // Did we *really* hit? Finalize momentum, check for Pauli blocking.
+        hit = FinalizeMomentum(*kickNuc, *hitNuc);
+        // Stop as soon as we hit anything
+        if (hit) break;
+    }
+
+    nucleus -> Nucleons() = particles;
+    Reset();
 }
 
 // TODO: Rewrite to have most of the logic built into the Nucleus class?
