@@ -4,9 +4,11 @@ add_library(utilities SHARED
     Particle.cc
     ThreeVector.cc
     Utilities.cc
+    ParticleInfo.cc
 )
+target_include_directories(utilities PUBLIC ${yaml-cpp_INCLUDE_DIRS})
 target_link_libraries(utilities PRIVATE project_options project_warnings
-                                PUBLIC spdlog::spdlog pybind11::pybind11)
+                                PUBLIC spdlog::spdlog pybind11::pybind11 yaml-cpp)
 
 add_library(physics SHARED
     Cascade.cc
@@ -40,6 +42,12 @@ pybind11_add_module(particle MODULE
 )
 target_link_libraries(particle PRIVATE project_options project_warnings
                                PUBLIC utilities)
+
+pybind11_add_module(particle_info MODULE
+    ParticleInfoModule.cc
+)
+target_link_libraries(particle_info PRIVATE project_options project_warnings
+                                    PUBLIC utilities)
 
 pybind11_add_module(nucleus MODULE
     NucleusModule.cc

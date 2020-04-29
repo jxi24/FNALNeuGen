@@ -84,17 +84,7 @@ class RunMode:
 
         name = settings().get_run('nucleus')
         binding_energy = settings().nucleus_binding(name)
-<<<<<<< Updated upstream
         fermi_momentum = settings().nucleus_kf(name)
-        logger.info(
-            f"{instance_name}: Building nucleus '{name}' "
-            f"with Fermi momentum {fermi_momentum} MeV and "
-            f"binding_energy {binding_energy} MeV.")
-        self.nucleus = nucleus.Nucleus.make_nucleus(name,
-                                                    binding_energy,
-                                                    fermi_momentum,
-=======
-        # fermi_momentum = settings().nucleus_kf(name)
         density_file = settings().get_param('density_file')
 #        try:
         self.fermi_gas= nucleus.Nucleus.__dict__[settings().get_param("fermi_gas")]
@@ -111,9 +101,9 @@ class RunMode:
         self.nucleus = nucleus.Nucleus.make_nucleus(name,
                                                     binding_energy,
                                                     density_file, self.fermi_gas,
->>>>>>> Stashed changes
+                                                    binding_energy, fermi_momentum,
                                                     density)
-
+        
         try:
             self.cascade_prob = cascade.Cascade.__dict__[settings().get_param("cascade_prob")]
         except KeyError as error:
@@ -148,12 +138,12 @@ class CalcCrossSection(RunMode):
         self.pid = 2212
         interaction = interactions.Interactions.create(settings().get_param('interaction'),
                                                        settings().get_param('interaction_file'))
-        density_file = settings().get_param('density_file')
-        self.fsi = cascade.Cascade(interaction, self.cascade_prob, density_file)
+        self.fsi = cascade.Cascade(interaction, self.cascade_prob)
 
     def generate_one_event(self):
         """ Generate one pN or nC event. """
-        particles = self.nucleus.generate_config()
+        self.nucleus.generate_config() 
+        particles = self.nucleus.nucleons()
 
         # Generate random position in beam
         while True:
@@ -166,27 +156,18 @@ class CalcCrossSection(RunMode):
         energy = settings().beam_energy
         nucleon_mass = settings().get_param('mn')
         momentum = vectors.Vector4(0, 0, energy, np.sqrt(energy**2+nucleon_mass**2))
-        test_part = particle.Particle(self.pid, momentum, position, -2)
+        test_part = particle.Particle(self.pid,
+                                      momentum,
+                                      position,
+                                      particle.ParticleStatus.external_test)
+
+        # Set up kicked
+        self.fsi.set_kicked(len(particles))
         particles.append(test_part)
-<<<<<<< Updated upstream
-        self.fsi.set_kicked(len(particles)-1)
-=======
         self.nucleus.set_nucleons(particles)
         self.fsi.nuwro(self.nucleus)
->>>>>>> Stashed changes
 
-        try:
-        #    particles = self.fsi(particles,
-        #                         self.nucleus.fermi_momentum(),
-        #                         2.5**2)
-            particles = self.fsi.fsi_nuwro(
-            particles,
-            self.nucleus.fermi_momentum(),
-            2.5**2)
-        except RuntimeError:
-            return None
-
-        return particles
+        return self.nucleus.nucleons()
 
     def finalize(self, events):
         """ Convert the events to a total cross-section. """
@@ -194,11 +175,12 @@ class CalcCrossSection(RunMode):
         for event in events:
             count = 0
             for part in event:
-                if part.status() == 1:
+                if part.status() == particle.ParticleStatus.escaped:
                     count += 1
             if count != 0:
                 xsec += 1
 
+        print(f"nhits: {xsec}")
         uncertainty = np.sqrt(xsec)
         xsec *= np.pi*self.radius**2/settings().nevents*10  # fm^2 to mb
         uncertainty *= np.pi*self.radius**2/settings().nevents*10  # fm^2 to mb
@@ -231,9 +213,8 @@ class CalcMeanFreePath(RunMode):
         logger.info(f"CalcMeanFreePath: creating interaction: '{name}'.")
         # interaction = interactions.Interactions.create(name, fname)
         interaction = ConstantInteraction(xsec=settings().get('xsec'))
-        density_file = settings().get_param('density_file')
 
-        self.fsi = cascade.Cascade(interaction, self.cascade_prob, density_file)
+        self.fsi = cascade.Cascade(interaction, self.cascade_prob)
         del interaction
         logger.info(
             "CalcMeanFreePath: nucleus contains "
@@ -257,7 +238,8 @@ class CalcMeanFreePath(RunMode):
         theta = np.arccos(2 * x[0] - 1)
         phi = 2 * np.pi * x[1]
         p_kick = settings().beam_energy
-        particles = self.nucleus.generate_config()
+        self.nucleus.generate_config()
+        particles = self.nucleus.nucleons()
 
         # Place a test particle in the center and give it a kick
         position = vectors.Vector3(0.0, 0.0, 0.0)
@@ -267,16 +249,18 @@ class CalcMeanFreePath(RunMode):
             p_kick * np.sin(theta) * np.sin(phi),
             p_kick * np.cos(theta),
             np.sqrt(p_kick**2.0+nucleon_mass**2))
-        test_part = particle.Particle(2212, momentum, position, -3)
+        test_part = particle.Particle(2212,
+                                      momentum,
+                                      position,
+                                      particle.ParticleStatus.internal_test)
+
+        # Evolve the nucleus
+        self.fsi.set_kicked(len(particles))
         particles.append(test_part)
-        self.fsi.set_kicked(len(particles)-1)
+        self.nucleus.set_nucleons(particles)
+        self.fsi.mean_free_path(self.nucleus)
 
-        particles = self.fsi.mean_free_path(
-            particles,
-            self.nucleus.fermi_momentum(),
-            self.nucleus.radius()**2)
-
-        return particles
+        return self.nucleus.nucleons()
 
     def finalize(self, events):
         """ Plot a histogram of distance traveled """
@@ -284,7 +268,7 @@ class CalcMeanFreePath(RunMode):
         nhits = 0
         for event in events:
             for aparticle in event:
-                if aparticle.status() == -3:
+                if aparticle.status() == particle.ParticleStatus.internal_test:
                     distance_traveled.append(aparticle.get_distance_traveled())
                     nhits = nhits + 1
         logger.info(f"nhits / nevents : {nhits} / {len(events)}")
@@ -332,9 +316,8 @@ class CalcTransparency(RunMode):
         self.pid = 2212
         interaction = interactions.Interactions.create(settings().get_param('interaction'),
                                                        settings().get_param('interaction_file'))
-        density_file = settings().get_param('density_file')
 
-        self.fsi = cascade.Cascade(interaction, self.cascade_prob, density_file)
+        self.fsi = cascade.Cascade(interaction, self.cascade_prob)
 
     def generate_one_event(self):
         """ Generate one pN or nC event. """
@@ -345,32 +328,32 @@ class CalcTransparency(RunMode):
         theta = np.arccos(2 * x[0] - 1)
         phi = 2 * np.pi * x[1]
         p_kick = settings().beam_energy
-        particles = self.nucleus.generate_config()
+        self.nucleus.generate_config()
+        particles = self.nucleus.nucleons()
 
         # Select a random particle to kick
         kicked_idx = np.random.choice(np.arange(len(particles)))
         self.fsi.set_kicked(kicked_idx)
         kicked_particle = particles[kicked_idx]
-        kicked_particle.set_status(-3)
+        kicked_particle.set_status(particle.ParticleStatus.internal_test)
         kicked_particle.set_momentum(vectors.Vector4(
             p_kick * np.sin(theta) * np.cos(phi),
             p_kick * np.sin(theta) * np.sin(phi),
             p_kick * np.cos(theta),
             np.sqrt(kicked_particle.mass()**2.0 + p_kick**2.0)))
 
-        particles = self.fsi.mean_free_path(
-            particles,
-            self.nucleus.fermi_momentum(),
-            self.nucleus.radius()**2)
+        # Evolve the nucleus
+        self.nucleus.set_nucleons(particles)
+        self.fsi.mean_free_path(self.nucleus)
 
-        return particles
+        return self.nucleus.nucleons()
 
     def finalize(self, events):
         """ Convert the events to a total cross-section. """
         nhits = 0
         for event in events:
             for aparticle in event:
-                if aparticle.status() == -3:
+                if aparticle.status() == particle.ParticleStatus.internal_test:
                     nhits = nhits + 1
 
         transparency = 1.0 - nhits / len(events)
@@ -397,6 +380,8 @@ class CalcInteractions(RunMode):
 
     def generate_one_event(self):
         """ Generate one pN or nC event. """
+        raise NotImplementedError
 
     def finalize(self, events):
         """ Convert the events to a total cross-section. """
+        raise NotImplementedError

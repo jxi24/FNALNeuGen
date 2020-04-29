@@ -1,8 +1,9 @@
 #include <cmath>
 #include <map>
 #include <regex>
-
+#include <fstream>
 #include <iostream>
+
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
@@ -29,30 +30,10 @@ const std::map<std::size_t, std::string> Nucleus::ZToName = {
 };
 
 Nucleus::Nucleus(const std::size_t& Z, const std::size_t& A, const double& bEnergy,
-<<<<<<< Updated upstream
-                         const double& kf, const std::function<Particles()>& _density) 
-                        : binding(bEnergy), fermiMomentum(kf), density(_density) {
-=======
-                 const std::string& densityFilename, const FermigasType& fg_type,
+                 const double& kf, const std::string& densityFilename, const FermiGasType& fgType,
 		 std::function<Particles()> _density) 
-                        : binding(bEnergy), density(std::move(_density)) {
->>>>>>> Stashed changes
-
-    switch(fg_type) {
-        case FermigasType::Local:
-            fermigas = [](const double &b2, const double &sigma) -> double {
-                return exp(-M_PI*b2/sigma);
-            };
-            break;
-        case FermigasType::Global:
-            fermigas = [](const double &b2, const double &sigma) -> double {
-                double b = sqrt(b2);
-                return (135_MeV*sigma)/Constant::HBARC/(2*M_PI*b)*exp(-135_MeV*b/Constant::HBARC); 
-            };
-            break;
-    }
-    double fm=fermigas(2,3);
-    fm=fm*1.0;    
+                        : binding(bEnergy), fermiMomentum(kf), fermiGas(fgType),
+                          density(std::move(_density)) {
 
     if(Z > A) {
         std::string errorMsg = "Requires the number of protons to be less than the total";
@@ -65,9 +46,43 @@ Nucleus::Nucleus(const std::size_t& Z, const std::size_t& A, const double& bEner
     protons.resize(Z);
     neutrons.resize(A-Z);
     spdlog::info("Nucleus: inferring nuclear radius using 0.16 nucleons/fm^3.");
-    radius = pow(static_cast<double>(A) / (4.0 / 3.0 * M_PI * 0.16), 1.0 / 3.0);
-    potential = sqrt(Constant::mN*Constant::mN 
-                     + pow(fermiMomentum, 2)) - Constant::mN + 8;
+    // TODO: Refactor elsewhere in the code, maybe make dynamic?
+    constexpr double nucDensity = 0.16;
+
+    radius = std::cbrt(static_cast<double>(A) / (4 / 3 * M_PI * nucDensity));
+
+    std:: ifstream densityFile(densityFilename);
+    std:: string lineContent;
+   
+    constexpr size_t HeaderLength = 16;
+    for(size_t i = 0; i < HeaderLength; ++i) {	   
+        std::getline(densityFile, lineContent);
+    }
+
+    double radius_, density_, densityErr;
+    std::vector<double> vecRadius, vecDensity;
+    while(densityFile >> radius_ >> density_ >> densityErr) {
+        vecRadius.push_back(std::move(radius_));
+        vecDensity.push_back(std::move(density_));
+    }
+
+    rhoInterp.CubicSpline(vecRadius, vecDensity);
+    
+    // Ensure the number of protons and neutrons are correct
+    // NOTE: This only is checked at startup, so if density returns a varying number of nucleons it will 
+    // not necessarily be caught 
+    auto particles = density();
+    if(particles.size() != nucleons.size())
+        throw std::runtime_error("Invalid density function! Incorrect number of nucleons.");
+
+    std::size_t nProtons = 0, nNeutrons = 0;
+    for(auto particle : particles) {
+        if(particle.ID() == PID::proton()) nProtons++;
+        if(particle.ID() == PID::neutron()) nNeutrons++;
+    }
+
+    if(nProtons != NProtons() || nNeutrons != NNeutrons())
+        throw std::runtime_error("Invalid density function! Incorrect number of protons and neutrons.");
 }
 
 void Nucleus::SetNucleons(Particles& _nucleons) noexcept {
@@ -75,77 +90,81 @@ void Nucleus::SetNucleons(Particles& _nucleons) noexcept {
     std::size_t proton_idx = 0;
     std::size_t neutron_idx = 0;
     for(auto particle : nucleons) {
-        if(particle.PID() == 2212) protons[proton_idx++] = particle;
-        if(particle.PID() == 2112) neutrons[neutron_idx++] = particle;
+        if(particle.ID() == PID::proton()) {
+            if(proton_idx >= protons.size()) {
+                protons.push_back(particle);
+                proton_idx++;
+            } else protons[proton_idx++] = particle;
+        }
+        else if(particle.ID() == PID::neutron()) {
+            if(neutron_idx >= neutrons.size()) {
+                neutrons.push_back(particle);
+                neutron_idx++;
+            } else neutrons[neutron_idx++] = particle;
+        }
     }
 }
 
 bool Nucleus::Escape(Particle& particle) noexcept {
     // Remove background particles
-    if(particle.Status() == 0) return false;
+    if(particle.Status() == ParticleStatus::background) return false;
 
     // Special case for testing pN cross-section
-    if(particle.Status() == -2) return true;
+    if(particle.Status() == ParticleStatus::external_test) return true;
 
     // Calculate kinetic energy, and if less than potential it is captured
     const double totalEnergy = sqrt(particle.Momentum().P2() + particle.Momentum().M2());
     const double kineticEnergy = totalEnergy - particle.Mass();
-    if(kineticEnergy < potential) return false;
+    if(kineticEnergy < Potential(particle.Position().Magnitude())) return false;
 
     // If the particle escapes, adjust momentum to account for this
     // TODO: This adjusts the mass. Is that acceptable?
     const double theta = particle.Momentum().Theta();
     const double phi = particle.Momentum().Phi();
-    const double px = particle.Momentum().Px() - potential * std::sin(theta) * std::cos(phi);
-    const double py = particle.Momentum().Py() - potential * std::sin(theta) * std::sin(phi);
-    const double pz = particle.Momentum().Pz() - potential * std::cos(theta);
+    const double px = particle.Momentum().Px() - Potential(particle.Position().Magnitude()) * std::sin(theta) * std::cos(phi);
+    const double py = particle.Momentum().Py() - Potential(particle.Position().Magnitude()) * std::sin(theta) * std::sin(phi);
+    const double pz = particle.Momentum().Pz() - Potential(particle.Position().Magnitude()) * std::cos(theta);
     particle.SetMomentum(FourVector(px, py, pz, particle.Momentum().E()));
     return true;
 }
 
-Particles Nucleus::GenerateConfig() {
+void Nucleus::GenerateConfig() {
     // Get a configuration from the density function
     Particles particles = density();
 
-    // Ensure the number of protons and neutrons are correct
-    if(particles.size() != nucleons.size())
-        throw std::runtime_error("Invalid density function! Incorrect number of nucleons.");
-    std::size_t nProtons = 0, nNeutrons = 0;
     for(Particle& particle : particles) {
-        if(particle.PID() == 2212) nProtons++;
-        if(particle.PID() == 2112) nNeutrons++;
-
         // Set momentum for each nucleon
-        auto mom3 = GenerateMomentum();
+        auto mom3 = GenerateMomentum(particle.Position().Magnitude());
         double energy2 = Constant::mN*Constant::mN;
         for(auto mom : mom3) energy2 += mom*mom;
         particle.SetMomentum(FourVector(mom3[0], mom3[1], mom3[2], sqrt(energy2)));
+
+        // Ensure status is set to background
+        particle.SetStatus(ParticleStatus::background);
     }
-    if(nProtons != NProtons() || nNeutrons != NNeutrons())
-        throw std::runtime_error("Invalid density function! Incorrect number of protons and neutrons.");
 
     // Update the nucleons in the nucleus
     SetNucleons(particles);
-    return particles;
 }
 
-const std::array<double, 3> Nucleus::GenerateMomentum() noexcept {
-    std::array<double, 3> momentum;
-    momentum[0] = rng.uniform(0.0, fermiMomentum);
+double Nucleus::Potential(const double &position) const noexcept{
+    constexpr double potentialShift = 8;
+    return  sqrt(Constant::mN*Constant::mN 
+                + pow(FermiMomentum(position), 2)) - Constant::mN + potentialShift;
+}
+
+const std::array<double, 3> Nucleus::GenerateMomentum(const double &position) noexcept {
+    std::array<double, 3> momentum{};
+    momentum[0] = rng.uniform(0.0,FermiMomentum(position));
     momentum[1] = std::acos(rng.uniform(-1.0, 1.0));
     momentum[2] = rng.uniform(0.0, 2*M_PI);
 
     return ToCartesian(momentum);
 }
 
-Nucleus Nucleus::MakeNucleus(const std::string& name, const double& bEnergy,
-<<<<<<< Updated upstream
-                                             const double& fermiMomentum,
-                                             const std::function<Particles()>& density) {
-=======
-                             const std::string& densityFilename, const FermigasType& fg_type,
+Nucleus Nucleus::MakeNucleus(const std::string& name, const double& bEnergy, const double& fermiMomentum,
+                             const std::string& densityFilename, const FermiGasType& fg_type,
                              const std::function<Particles()>& density) {
->>>>>>> Stashed changes
     const std::regex regex("([0-9]+)([a-zA-Z]+)");
     std::smatch match;
 
@@ -156,11 +175,7 @@ Nucleus Nucleus::MakeNucleus(const std::string& name, const double& bEnergy,
             "Nucleus: parsing nuclear name '{0}', expecting a density "
             "with A={1} total nucleons and Z={2} protons.", 
             name, nucleons, protons);
-<<<<<<< Updated upstream
-        return Nucleus(protons, nucleons, bEnergy, fermiMomentum, density);
-=======
-        return Nucleus(protons, nucleons, bEnergy, densityFilename, fg_type, density);
->>>>>>> Stashed changes
+        return Nucleus(protons, nucleons, bEnergy, fermiMomentum, densityFilename, fg_type, density);
     }
 
     throw std::runtime_error("Invalid nucleus " + name);
@@ -179,3 +194,17 @@ std::size_t Nucleus::NameToZ(const std::string& name) {
 const std::string Nucleus::ToString() const noexcept {
     return std::to_string(NNucleons()) + ZToName.at(NProtons());
 }
+
+double Nucleus::FermiMomentum(const double &position) const noexcept { 
+    double rho = rhoInterp(position);
+    if(position>10) rho=0;	    
+    switch(fermiGas) {
+    case FermiGasType::Local:
+         return std::cbrt(rho*3*M_PI*M_PI)*Constant::HBARC;
+    case FermiGasType::Global:
+         static constexpr double small = 1E-2;
+         return rho < small ? small : fermiMomentum;
+   }
+}
+
+

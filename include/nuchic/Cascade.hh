@@ -38,16 +38,16 @@ class Cascade {
         /// Create the Cascade object
         ///@param interactions: The interaction model for pp, pn, and np interactions
         ///@param prob: The interaction probability function to be used
-        ///@param densityFile: The file containing density information for Pauli Blocking
-        ///TODO: This should be added to the Nucleus class when we refactor to have the Nucleus
-        ///      passed in as an object
         ///@param dist: The maximum distance step to take when propagating
         ///TODO: Should the ProbabilityType be part of the interaction class or the cascade class?
-        Cascade(const std::shared_ptr<Interactions>,  const ProbabilityType&,
-                const std::string&, const double&);
+        Cascade(const std::shared_ptr<Interactions>,  const ProbabilityType&, const double&);
+        Cascade(const Cascade&) = default;
+        Cascade(Cascade&&) = default;
+        Cascade& operator=(const Cascade&) = default;
+        Cascade& operator=(Cascade&&) = default;
 
         /// Default destructor
-        ~Cascade() {}
+        ~Cascade() = default;
         ///@}
 
         /// @name Functions
@@ -59,38 +59,40 @@ class Cascade {
         ///@param particles: The list of particles inside the nucleus
         ///@param energyTransfer: The energy transfered to the nucleon during the kick
         ///@param sigma: An array representing the cross-section for different kicked nucleons
-        Particles Kick(const Particles&, const FourVector&, const std::array<double, 2>&);
+        void Kick(std::shared_ptr<Nucleus>, const FourVector&, const std::array<double, 2>&);
 
         /// Reset the cascade internal variables for the next cascade
         void Reset();
 
-        /// Simulate the cascade until all particles either escape, are recaptured, or are in 
-        /// the background.
-        ///@param particles: The list of particles in the nucleus
-        ///@param kf: The Fermi Momentum to use for Pauli Blocking
-        ///@param radius2: The squared radius denoting the edge of the nucleus
-        ///@param maxSteps: The maximum steps to take in the cascade
-        Particles operator()(const Particles&, const double&, const double&,
-                const std::size_t& maxSteps=1000000);
-
         /// Helper function to make a specific nucleon as the kicked nucleon
         ///@param idx: The index of the particle that has been kicked
-        void SetKicked(const std::size_t& idx) {kickedIdxs.push_back(idx);}
+        void SetKicked(const std::size_t& idx) { kickedIdxs.push_back(idx); }
 
-        Particles Evolve(const Nucleus& nuc, const std::size_t& maxSteps);
+        /// Simulate the cascade until all particles either escape, are recaptured, or are in 
+        /// the background.
+        ///@param nucleus: The nucleus to evolve
+        ///@param maxSteps: The maximum steps to take in the cascade
+        void Evolve(std::shared_ptr<Nucleus>, const std::size_t& maxSteps);
 
         /// Simulate evolution of a kicked particle until it interacts for the 
         /// first time with another particle, accumulating the total distance
         /// traveled by the kicked particle before it interacts.
-        ///@param particles: The list of particles in the nucleus
-        ///@param kf: The Fermi momentum to use for Pauli Blocking
-        ///@param radius2: The squared radius denoting the edge of the nucleus
+        ///@param nucleus: The nucleus to evolve according to the mean free path calculation
         ///@param maxSteps: The maximum steps to take in the particle evolution
-        Particles MeanFreePath(const Particles&, const double&, const double&,
-                const std::size_t& maxSteps=1000000);
-	Particles  NuWro_Style(const Particles&, const double&, const double&,
-                const std::size_t& maxSteps=1000000);
+        void MeanFreePath(std::shared_ptr<Nucleus>, const std::size_t& maxSteps);
 
+        /// Simulate the cascade until all particles either escape, are recaptured, or are in 
+        /// the background. This is done according to the NuWro algorithm.
+        ///@param nucleus: The nucleus to evolve according to the NuWro method of cascade
+        ///@param maxSteps: The maximum steps to take in the particle evolution
+	void NuWro(std::shared_ptr<Nucleus>, const std::size_t& maxSteps);
+
+	/// Simulate evolution of a kicked particle until it interacts for the 
+        /// first time with another particle, accumulating the total distance
+        /// traveled by the kicked particle before it interacts.
+        ///@param nucleus: The nucleus to evolve according to the mean free path calculation
+        ///@param maxSteps: The maximum steps to take in the particle evolution
+        void MeanFreePath_NuWro(std::shared_ptr<Nucleus>, const std::size_t& maxSteps);
         ///@}
     private:
         // Functions
@@ -102,16 +104,17 @@ class Cascade {
         double GetXSec(const Particle&, const Particle&) const;
         std::size_t Interacted(const Particles&, const Particle&,
                 const InteractionDistances&) noexcept;
+        void Escaped(Particles&);
         bool FinalizeMomentum(Particle&, Particle&) noexcept;
         bool PauliBlocking(const Particle&) const noexcept;
 
         // Variables
         std::vector<std::size_t> kickedIdxs;
-        double distance, timeStep, fermiMomentum, radius2;
-        Interp1D rhoInterp;	
+        double distance, timeStep{};
         std::shared_ptr<Interactions> m_interactions;
         std::function<double(double, double)> probability;
         randutils::mt19937_rng rng;
+        std::shared_ptr<Nucleus> localNucleus;
 };
 
 }
