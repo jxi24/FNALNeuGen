@@ -12,12 +12,13 @@
 #include "nuchic/Particle.hh"
 #include "nuchic/Utilities.hh"
 #include "nuchic/Interactions.hh"
+#include "nuchic/ThreeVector.hh"
 
 using namespace nuchic;
 
 Cascade::Cascade(const std::shared_ptr<Interactions> interactions,
                  const ProbabilityType& prob,
-                 const double& dist = 0.05) 
+                 const double& dist = 0.03)
         : distance(dist), m_interactions(interactions) {
 
     switch(prob) {
@@ -29,10 +30,15 @@ Cascade::Cascade(const std::shared_ptr<Interactions> interactions,
         case ProbabilityType::Pion:
             probability = [](const double &b2, const double &sigma) -> double {
                 double b = sqrt(b2);
-                //return (135_MeV*sigma)/Constant::HBARC/(2*M_PI*b)*exp(-135_MeV*b/Constant::HBARC); 
-		return exp(-sqrt(2*M_PI/sigma)*b);
+                // TODO: This does not work, we need to rethink this
+                // return (135_MeV*sigma)/Constant::HBARC/(2*M_PI*b)*exp(-135_MeV*b/Constant::HBARC);
+                return exp(-sqrt(2*M_PI/sigma)*b);
             };
             break;
+        case ProbabilityType::Cylinder:
+            probability = [](const double &b2, const double &sigma) -> double {
+                return b2 < sigma/M_PI ? 1 : 0;
+            };
     }
 }
 
@@ -55,55 +61,67 @@ void Cascade::Kick(std::shared_ptr<Nucleus> nucleus, const FourVector& energyTra
     kicked -> SetMomentum(kicked -> Momentum() + energyTransfer);
 }
 
-std::size_t  Cascade::GetInter(Particles& particles, const Particle& particle1, double& stepDistance) {
+std::size_t Cascade::GetInter(Particles &particles, const Particle &kickedPart,
+                              double &stepDistance) {
     std::vector<std::size_t> index_same, index_diff;
 
     for(std::size_t i = 0; i < particles.size(); ++i) {
         if (particles[i].Status() != ParticleStatus::background) continue;
-	if (particles[i].ID() == particle1.ID()) index_same.push_back(i);
+        if(particles[i].ID() == kickedPart.ID()) index_same.push_back(i);
         else index_diff.push_back(i);
     }
 
-    if(index_diff.size()==0 && index_same.size()==0) return SIZE_MAX; 
-    double position = particle1.Position().Magnitude();	
+    if(index_diff.size()==0 && index_same.size()==0) return SIZE_MAX;
+
+    double position = kickedPart.Position().Magnitude();
+
     auto mom = localNucleus -> GenerateMomentum(position);
     double energy = Constant::mN*Constant::mN;
     for(auto p : mom) energy += p*p;
-
-    std::size_t idx1 = SIZE_MAX;
-    double xsec1 = 0;
+    std::size_t idxSame = SIZE_MAX;
+    double xsecSame = 0;
     if(index_same.size() != 0) {
-        idx1 = rng.pick(index_same);
-        particles[idx1].SetMomentum(FourVector(mom[0], mom[1], mom[2], sqrt(energy)));
-        xsec1 = GetXSec(particle1, particles[idx1]);
+        idxSame = rng.pick(index_same);
+        particles[idxSame].SetMomentum(
+            FourVector(mom[0], mom[1], mom[2], sqrt(energy)));
+        xsecSame = GetXSec(kickedPart, particles[idxSame]);
     }
 
-    std::size_t idx2 = SIZE_MAX;
-    double xsec2 = 0;
+    mom = localNucleus -> GenerateMomentum(position);
+    energy = Constant::mN*Constant::mN;
+    for(auto p : mom) energy += p*p;
+    std::size_t idxDiff = SIZE_MAX;
+    double xsecDiff = 0;
     if(index_diff.size() != 0) {
-        idx2 = rng.pick(index_diff);
-        particles[idx2].SetMomentum(FourVector(mom[0], mom[1], mom[2], sqrt(energy)));
-        xsec2 = GetXSec(particle1, particles[idx2]);
+        idxDiff = rng.pick(index_diff);
+        particles[idxDiff].SetMomentum(
+            FourVector(mom[0], mom[1], mom[2], sqrt(energy)));
+        xsecDiff = GetXSec(kickedPart, particles[idxDiff]);
     }
- 
-    double rho = localNucleus -> Rho(position);
-    if(rho <= 0.0) return SIZE_MAX;
-    double lambda_tilde = 1.0/(xsec1/10*rho+xsec2/10*rho);
+
+    double rhoSame=0.0;
+    double rhoDiff=0.0;
+    if(position < localNucleus -> Radius()) {
+         rhoSame = localNucleus -> Rho(position)*2*index_same.size()/particles.size();
+         rhoDiff = localNucleus -> Rho(position)*2*index_diff.size()/particles.size();
+    }
+    if(rhoSame <= 0.0 && rhoDiff <=0.0) return SIZE_MAX;
+    double lambda_tilde = 1.0 / (xsecSame / 10 * rhoSame + xsecDiff / 10 * rhoDiff);
     double lambda = -log(rng.uniform(0.0, 1.0))*lambda_tilde;
-    
+
     if(lambda > stepDistance) return SIZE_MAX;
-    
+
     stepDistance = lambda;
     double ichoice = rng.uniform(0.0, 1.0);
-    if(ichoice < xsec1/(xsec1+xsec2)) {
-       particles[idx1].SetPosition(particle1.Position());	    
-       return idx1;
-    } 
+    if(ichoice < xsecSame / (xsecSame + xsecDiff)) {
+        particles[idxSame].SetPosition(kickedPart.Position());
+        return idxSame;
+    }
 
-    particles[idx2].SetPosition(particle1.Position());
-    return idx2;
-}    
-	
+    particles[idxDiff].SetPosition(kickedPart.Position());
+    return idxDiff;
+}
+
 void Cascade::Reset() {
     kickedIdxs.resize(0);
 }
@@ -115,7 +133,7 @@ void Cascade::Evolve(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSte
     for(std::size_t step = 0; step < maxSteps; ++step) {
         // Stop loop if no particles are propagating
         if(kickedIdxs.size() == 0) break;
-        
+
         // Adapt time step
         AdaptiveStep(particles, distance);
 
@@ -144,7 +162,7 @@ void Cascade::Evolve(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSte
             bool hit = FinalizeMomentum(*kickNuc, *hitNuc);
             if(hit) {
                 newKicked.push_back(hitIdx);
-                hitNuc->SetStatus(ParticleStatus::propagating);
+                hitNuc -> SetStatus(ParticleStatus::propagating);
             }
         }
 
@@ -166,7 +184,7 @@ void Cascade::Evolve(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSte
     nucleus -> Nucleons() = particles;
 }
 
-void Cascade::NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 5000000) { 
+void Cascade::NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 10000000) {
     localNucleus = nucleus;
     Particles particles = nucleus -> Nucleons();
 
@@ -174,9 +192,9 @@ void Cascade::NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxStep
         // Stop loop if no particles are propagating
         if(kickedIdxs.size() == 0) break;
 
-	 // Adapt time step
+     // Adapt time step
         AdaptiveStep(particles, distance);
-        
+
         // Make local copy of kickedIdxs
         auto newKicked = kickedIdxs;
         for(auto idx : kickedIdxs) {
@@ -184,21 +202,25 @@ void Cascade::NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxStep
 
             // Update formation zones
             if(kickNuc -> InFormationZone()) {
-	//	timeStep= distance/(kickNuc -> Beta().Magnitude()*Constant::HBARC);			   
+        timeStep = distance/(kickNuc -> Beta().Magnitude()*Constant::HBARC);
                 kickNuc -> UpdateFormationZone(timeStep);
-                kickNuc -> SpacePropagate(distance);		
+                kickNuc -> SpacePropagate(distance);
                 continue;
             }
 
-	    double step_prop = distance;
-            auto hitIdx = GetInter(particles,*kickNuc,step_prop); 
-            kickNuc -> SpacePropagate(step_prop);
-            if (hitIdx == SIZE_MAX) continue;
-	    Particle* hitNuc = &particles[hitIdx];
+        double step_prop = distance;
+            auto hitIdx = GetInter(particles, *kickNuc, step_prop);
+            if (hitIdx == SIZE_MAX) {
+                kickNuc -> SpacePropagate(step_prop);
+        continue;
+            }
+        Particle* hitNuc = &particles[hitIdx];
             bool hit = FinalizeMomentum(*kickNuc, *hitNuc);
+            kickNuc -> SpacePropagate(step_prop);
+
             if(hit) {
                 newKicked.push_back(hitIdx);
-                hitNuc->SetStatus(ParticleStatus::propagating);
+                hitNuc -> SetStatus(ParticleStatus::propagating);
             }
         }
 
@@ -224,7 +246,7 @@ void Cascade::MeanFreePath(std::shared_ptr<Nucleus> nucleus, const std::size_t& 
 
     auto idx = kickedIdxs[0];
     Particle* kickNuc = &particles[idx];
-    
+
     if (kickedIdxs.size() != 1) {
         std::runtime_error("MeanFreePath: only one particle should be kicked.");
     }
@@ -260,13 +282,14 @@ void Cascade::MeanFreePath(std::shared_ptr<Nucleus> nucleus, const std::size_t& 
 }
 
 
-void Cascade::MeanFreePath_NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxSteps = 10000) {
+void Cascade::MeanFreePath_NuWro(std::shared_ptr<Nucleus> nucleus,
+                                 const std::size_t& maxSteps = 10000) {
     localNucleus = nucleus;
     Particles particles = nucleus -> Nucleons();
 
     auto idx = kickedIdxs[0];
     Particle* kickNuc = &particles[idx];
-    
+
     if (kickedIdxs.size() != 1) {
         std::runtime_error("MeanFreePath: only one particle should be kicked.");
     }
@@ -286,9 +309,9 @@ void Cascade::MeanFreePath_NuWro(std::shared_ptr<Nucleus> nucleus, const std::si
         //AdaptiveStep(particles, distance);
         double step_prop = distance;
         // Did we hit?
-        auto hitIdx = GetInter(particles,*kickNuc,step_prop); 
-        kickNuc -> SpacePropagate(step_prop);	
-       	if (hitIdx == SIZE_MAX) continue;
+        auto hitIdx = GetInter(particles,*kickNuc,step_prop);
+        kickNuc -> SpacePropagate(step_prop);
+           if (hitIdx == SIZE_MAX) continue;
         Particle* hitNuc = &particles[hitIdx];
         // Did we *really* hit? Finalize momentum, check for Pauli blocking.
         hit = FinalizeMomentum(*kickNuc, *hitNuc);
@@ -300,24 +323,28 @@ void Cascade::MeanFreePath_NuWro(std::shared_ptr<Nucleus> nucleus, const std::si
     Reset();
 }
 
-// TODO: Rewrite to have most of the logic built into the Nucleus class?
+// TODO: Rewrite to have the logic built into the Nucleus class 
 void Cascade::Escaped(Particles &particles) {
-    //std::cout << "CURRENT STEP: " << step << std::endl;
+    // std::cout << "CURRENT STEP: " << step << std::endl;
     for(auto it = kickedIdxs.begin() ; it != kickedIdxs.end(); ) {
         // Nucleon outside nucleus (will check if captured or escaped after cascade)
         auto particle = &particles[*it];
         if(particle -> Status() == ParticleStatus::background)
             throw std::domain_error("Invalid Particle in kicked list");
-        //if(particle -> Status() == -2) {
-        //    std::cout << particle -> Position().Pz() << " " << sqrt(radius2) << std::endl;
-        //    std::cout << *particle << std::endl;
-        //}
+        // if(particle -> Status() == -2) {
+        //     std::cout << particle -> Position().Pz() << " " << sqrt(radius2) << std::endl;
+        //     std::cout << *particle << std::endl;
+        // }
+        constexpr double potential = 10.0;
+    const double energy = particle -> Momentum().E() - Constant::mN - potential;
         auto radius = localNucleus -> Radius();
         if(particle -> Position().Magnitude2() > pow(radius, 2)
            && particle -> Status() != ParticleStatus::external_test) {
-            particle -> SetStatus(ParticleStatus::escaped);
+            if(energy > 0) particle -> SetStatus(ParticleStatus::escaped);
+            else particle -> SetStatus(ParticleStatus::background);
             it = kickedIdxs.erase(it);
-        } else if(particle -> Status() == ParticleStatus::external_test && particle -> Position().Pz() > sqrt(radius)) {
+        } else if(particle -> Status() == ParticleStatus::external_test
+                  && particle -> Position().Pz() > radius) {
             it = kickedIdxs.erase(it);
         } else {
             ++it;
@@ -349,7 +376,7 @@ const ThreeVector Cascade::Project(const ThreeVector& position,
                                    const ThreeVector& planePt,
                                    const ThreeVector& planeVec) const noexcept {
     // Project point onto a plane
-    const ThreeVector projection = (position - planePt).Dot(planeVec)*planeVec; 
+    const ThreeVector projection = (position - planePt).Dot(planeVec)*planeVec;
     return position - projection;
 }
 
@@ -365,7 +392,7 @@ const InteractionDistances Cascade::AllowedInteractions(Particles& particles,
 
     // Build results vector
     for(std::size_t i = 0; i < particles.size(); ++i) {
-        // TODO: Should particles propagating be able to interact with 
+        // TODO: Should particles propagating be able to interact with
         //       other propagating particles?
         if (particles[i].Status() < ParticleStatus::background) continue;
         // if(i == idx) continue;
@@ -398,6 +425,8 @@ std::size_t Cascade::Interacted(const Particles& particles, const Particle& kick
     return SIZE_MAX;
 }
 
+
+
 bool Cascade::FinalizeMomentum(Particle& particle1, Particle& particle2) noexcept {
     // Boost to center of mass frame
     ThreeVector boostCM = (particle1.Momentum() + particle2.Momentum()).BoostVector();
@@ -405,7 +434,7 @@ bool Cascade::FinalizeMomentum(Particle& particle1, Particle& particle2) noexcep
     FourVector p1CM = p1Lab.Boost(-boostCM), p2CM = p2Lab.Boost(-boostCM);
 
     // Generate outgoing momentum
-    bool samePID = particle1.ID() == particle2.ID(); 
+    bool samePID = particle1.ID() == particle2.ID();
     double ecm = (p1CM + p2CM).M();
     const double pcm = particle1.Momentum().Vec3().Magnitude() * Constant::mN / ecm;
     std::array<double, 2> rans{};
@@ -415,9 +444,9 @@ bool Cascade::FinalizeMomentum(Particle& particle1, Particle& particle2) noexcep
                                                           pcm,
                                                           rans);
 
-    FourVector p1Out = FourVector(momentum[0], momentum[1], momentum[2], p1CM.E()); 
-    FourVector p2Out = FourVector(-momentum[0], -momentum[1], -momentum[2], p1CM.E()); 
-   
+    FourVector p1Out = FourVector(momentum[0], momentum[1], momentum[2], p1CM.E());
+    FourVector p2Out = FourVector(-momentum[0], -momentum[1], -momentum[2], p1CM.E());
+
     // Boost back to lab frame
     p1Out = p1Out.Boost(boostCM);
     p2Out = p2Out.Boost(boostCM);
@@ -446,7 +475,7 @@ bool Cascade::FinalizeMomentum(Particle& particle1, Particle& particle2) noexcep
 }
 
 // TODO: Rewrite to have most of the logic built into the Nucleus class?
-bool Cascade::PauliBlocking(const Particle& particle) const noexcept { 
-    double position = particle.Position().Magnitude();	
+bool Cascade::PauliBlocking(const Particle& particle) const noexcept {
+    double position = particle.Position().Magnitude();
     return particle.Momentum().Vec3().Magnitude() < localNucleus -> FermiMomentum(position);
 }
