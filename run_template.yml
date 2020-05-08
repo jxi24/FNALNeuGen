@@ -1,5 +1,5 @@
 run:
-    mode: transparency
+    mode: xsec
     events: 6000
     beam_energy: $beam_energy
     angle: 0.0

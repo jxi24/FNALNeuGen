@@ -343,7 +343,7 @@ class CalcTransparency(RunMode):
 
         # Evolve the nucleus
         self.nucleus.set_nucleons(particles)
-        self.fsi.mean_free_path(self.nucleus)
+        self.fsi.mean_free_path_nuwro(self.nucleus)
 
         return self.nucleus.nucleons()
 
