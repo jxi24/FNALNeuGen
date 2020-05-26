@@ -1,21 +1,14 @@
 #ifndef INDEXUTIL_HH
 #define INDEXUTIL_HH
 
+#include "nuchic/Tensor/Meta.hh"
+
 #include <tuple>
 #include <type_traits>
 
 namespace nuchic {
 namespace tensor {
 namespace detail {
-
-template<typename ...input_t>
-using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
-
-// From: https://stackoverflow.com/a/48204876/9201027
-template<typename T, std::size_t N, typename Tuple, std::size_t... I>
-constexpr decltype(auto) tuple2array_impl(const Tuple &t, std::index_sequence<I...>) {
-    return std::array<T, N>{std::get<I>(t)...};
-}
 
 // Inspired by the answer found at: https://stackoverflow.com/a/25958302/9201027
 template<typename Index, typename IndexTuple>
@@ -30,13 +23,6 @@ struct has_index_impl<Index, std::tuple<Index0, Indices...>> : has_index_impl<In
 template<typename Index, typename ...Indices>
 struct has_index_impl<Index, std::tuple<Index, Indices...>> : std::true_type {};
 
-}
-
-template<typename Head, typename... Tail>
-constexpr decltype(auto) tuple2array(const std::tuple<Head, Tail...>& t) {
-    using Tuple = std::tuple<Head, Tail...>;
-    constexpr auto N = std::tuple_size<Tuple>::value;
-    return detail::tuple2array_impl<Head, N, Tuple>(t, std::make_index_sequence<N>());
 }
 
 template<typename index_type, typename tuple_type>
@@ -160,6 +146,39 @@ struct index_pairs {
     static constexpr auto size = num_repeated_indices<left, right>::value;
     using type = typename detail::index_pairs_impl<1, dim_left, left, right>::type;
     static_assert(std::tuple_size<type>::value == size, "Invalid contraction indices");
+};
+
+namespace detail {
+template<std::size_t i, std::size_t N, typename left, typename right>
+struct free_index_impl {
+    using index_t = std::tuple_element_t<i-1, left>;
+    using has_index_t = has_index<index_t, right>;
+    using get_index_t = index_position<index_t, right>;
+    using next_t = free_index_impl<i+1,N,left,right>;
+    using type = typename std::conditional<!has_index_t::value, 
+        detail::tuple_cat_t<std::tuple<std::integral_constant<std::size_t, i-1>>, typename next_t::type>,
+        detail::tuple_cat_t<typename next_t::type>>::type;
+};
+
+template<std::size_t N, typename left, typename right>
+struct free_index_impl<N, N, left, right> {
+    using index_t = std::tuple_element_t<N-1, left>;
+    using has_index_t = has_index<index_t, right>;
+    using get_index_t = index_position<index_t, right>;
+    using type = typename std::conditional<!has_index_t::value,
+        std::tuple<std::integral_constant<std::size_t, N-1>>,
+        std::tuple<>>::type;
+};
+}
+
+template<typename tleft, typename tright>
+struct free_indices {
+    using left = std::decay_t<tleft>;
+    using right = std::decay_t<tright>;
+    static constexpr auto dim_left = std::tuple_size<left>::value;
+    static constexpr auto size = num_repeated_indices<left, right>::value;
+    using type = typename detail::free_index_impl<1, dim_left, left, right>::type;
+    static_assert(dim_left - std::tuple_size<type>::value == size, "Invalid contraction indices");
 };
 
 }
