@@ -12,7 +12,7 @@ run:
     nuclear_density: configuration
 
 nucleus_config:
-    config_type: QMC
+    config_type: MF
     radius: 10
     n_nucleons: 100
 

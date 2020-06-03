@@ -202,7 +202,7 @@ void Cascade::NuWro(std::shared_ptr<Nucleus> nucleus, const std::size_t& maxStep
 
             // Update formation zones
             if(kickNuc -> InFormationZone()) {
-        timeStep = distance/(kickNuc -> Beta().Magnitude()*Constant::HBARC);
+                timeStep = distance/(kickNuc -> Beta().Magnitude()*Constant::HBARC);
                 kickNuc -> UpdateFormationZone(timeStep);
                 kickNuc -> SpacePropagate(distance);
                 continue;
@@ -258,6 +258,14 @@ void Cascade::MeanFreePath(std::shared_ptr<Nucleus> nucleus, const std::size_t& 
     }
     bool hit = false;
     for(std::size_t step = 0; step < maxSteps; ++step) {
+           AdaptiveStep(particles, distance);
+
+            if(kickNuc -> InFormationZone()) {
+                kickNuc -> UpdateFormationZone(timeStep);
+                kickNuc -> Propagate(timeStep);
+                continue;
+            }
+
         // Are we already outside nucleus?
         if (kickNuc -> Position().Magnitude() >= nucleus -> Radius()) {
             kickNuc -> SetStatus(ParticleStatus::escaped);
@@ -275,8 +283,8 @@ void Cascade::MeanFreePath(std::shared_ptr<Nucleus> nucleus, const std::size_t& 
         hit = FinalizeMomentum(*kickNuc, *hitNuc);
         // Stop as soon as we hit anything
         if (hit) break;
+    
     }
-
     nucleus -> Nucleons() = particles;
     Reset();
 }
@@ -334,8 +342,10 @@ void Cascade::Escaped(Particles &particles) {
         //     std::cout << particle -> Position().Pz() << " " << sqrt(radius2) << std::endl;
         //     std::cout << *particle << std::endl;
         // }
+        // TODO: Use the code from src/nuchic/Nucleus.cc:108 to properly handle 
+        //       escape vs. capture and mometum changes
         constexpr double potential = 10.0;
-    const double energy = particle -> Momentum().E() - Constant::mN - potential;
+        const double energy = particle -> Momentum().E() - Constant::mN - potential;
         auto radius = localNucleus -> Radius();
         if(particle -> Position().Magnitude2() > pow(radius, 2)
            && particle -> Status() != ParticleStatus::external_test) {
@@ -394,7 +404,7 @@ const InteractionDistances Cascade::AllowedInteractions(Particles& particles,
         // TODO: Should particles propagating be able to interact with
         //       other propagating particles?
         if (particles[i].Status() < ParticleStatus::background) continue;
-        // if(i == idx) continue;
+        //if(i == idx) continue;
         // if(particles[i].InFormationZone()) continue;
         if(!BetweenPlanes(particles[i].Position(), point1, point2)) continue;
         auto projectedPosition = Project(particles[i].Position(), point1, normedMomentum);
@@ -451,7 +461,7 @@ bool Cascade::FinalizeMomentum(Particle& particle1, Particle& particle2) noexcep
     particle2.SetMomentum(p2Out);
 
     // Check for Pauli Blocking
-    bool hit = !(PauliBlocking(particle1) || PauliBlocking(particle2));
+    bool hit = true;//!(PauliBlocking(particle1) || PauliBlocking(particle2));
 
     if(hit) {
         // Assign formation zone
