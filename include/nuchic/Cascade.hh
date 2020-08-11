@@ -16,6 +16,7 @@ namespace nuchic {
 class Nucleus;
 class Particle;
 class Interactions;
+class EffectiveMass;
 
 using Particles = std::vector<Particle>;
 using InteractionDistances = std::vector<std::pair<std::size_t, double>>;
@@ -95,6 +96,7 @@ class Cascade {
         ///@param maxSteps: The maximum steps to take in the particle evolution
         void MeanFreePath_NuWro(std::shared_ptr<Nucleus>, const std::size_t& maxSteps);
         ///@}
+
     private:
         // Functions
         std::size_t GetInter(Particles&, const Particle&, double& stepDistance); 
@@ -110,12 +112,13 @@ class Cascade {
         bool PauliBlocking(const Particle&) const noexcept;
 
         // Variables
-        std::vector<std::size_t> kickedIdxs;
+        std::vector<std::size_t> kickedIdxs{};
         double distance, timeStep{};
         std::shared_ptr<Interactions> m_interactions;
         std::function<double(double, double)> probability;
-        randutils::mt19937_rng rng;
+        randutils::mt19937_rng rng{};
         std::shared_ptr<Nucleus> localNucleus;
+        std::shared_ptr<EffectiveMass> effectiveMass;
 };
 
 }

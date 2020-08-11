@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <memory>
 #include <vector>
 
 #include "spdlog/spdlog.h"
@@ -13,6 +14,7 @@
 #include "nuchic/Utilities.hh"
 #include "nuchic/Interactions.hh"
 #include "nuchic/ThreeVector.hh"
+#include "nuchic/EffectiveMass.hh"
 
 using namespace nuchic;
 
@@ -40,6 +42,9 @@ Cascade::Cascade(const std::shared_ptr<Interactions> interactions,
                 return b2 < sigma/M_PI ? 1 : 0;
             };
     }
+
+    std::array<double, 2> lambda{3.29, -0.373};
+    effectiveMass = std::make_shared<PandharipandePieper>(-116, lambda, 0.16);
 }
 
 void Cascade::Kick(std::shared_ptr<Nucleus> nucleus, const FourVector& energyTransfer,
@@ -78,7 +83,7 @@ std::size_t Cascade::GetInter(Particles &particles, const Particle &kickedPart,
     auto mom = localNucleus -> GenerateMomentum(position);
     double energy = Constant::mN*Constant::mN;
     for(auto p : mom) energy += p*p;
-    std::size_t idxSame = SIZE_MAX;
+    size_t idxSame = SIZE_MAX;
     double xsecSame = 0;
     if(index_same.size() != 0) {
         idxSame = rng.pick(index_same);
@@ -90,7 +95,7 @@ std::size_t Cascade::GetInter(Particles &particles, const Particle &kickedPart,
     mom = localNucleus -> GenerateMomentum(position);
     energy = Constant::mN*Constant::mN;
     for(auto p : mom) energy += p*p;
-    std::size_t idxDiff = SIZE_MAX;
+    size_t idxDiff = SIZE_MAX;
     double xsecDiff = 0;
     if(index_diff.size() != 0) {
         idxDiff = rng.pick(index_diff);
@@ -420,7 +425,26 @@ const InteractionDistances Cascade::AllowedInteractions(Particles& particles,
 }
 
 double Cascade::GetXSec(const Particle& particle1, const Particle& particle2) const {
-    return m_interactions -> CrossSection(particle1, particle2);
+    static double min_effect = 1;
+
+    const auto mom1 = particle1.Momentum();
+    const auto mom2 = particle2.Momentum();
+    const double rho1 = localNucleus -> Rho(particle1.Position().P());
+    const double rho2 = localNucleus -> Rho(particle2.Position().P());
+    const double rho = std::max(rho1, rho2);
+
+    const double mass1 = effectiveMass -> GetMass(Constant::mN, mom1.P(), rho);
+    const double mass2 = effectiveMass -> GetMass(Constant::mN, mom2.P(), rho);
+    const double mass3 = effectiveMass -> GetMass(Constant::mN, sqrt((mom1*mom1+mom2*mom2)/2), rho);
+
+    double inMediumEffect = std::abs((mom1-mom2).P())/Constant::mN
+                          * pow(std::abs((mom1/mass1-mom2/mass2).P()), -1)
+                          * mass3/Constant::mN; 
+    if(inMediumEffect < min_effect) {
+        std::cout << rho1 << " " << rho2 << " " << mass1 << " " << mass2 << " " << mass3 << " " << inMediumEffect << std::endl;
+        min_effect = inMediumEffect;
+    }
+    return m_interactions -> CrossSection(particle1, particle2)*inMediumEffect;
 }
 
 std::size_t Cascade::Interacted(const Particles& particles, const Particle& kickedParticle,
