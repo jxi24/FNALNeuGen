@@ -425,26 +425,21 @@ const InteractionDistances Cascade::AllowedInteractions(Particles& particles,
 }
 
 double Cascade::GetXSec(const Particle& particle1, const Particle& particle2) const {
-    static double min_effect = 1;
+    // const auto mom1 = particle1.Momentum();
+    // const auto mom2 = particle2.Momentum();
+    // const double rho1 = localNucleus -> Rho(particle1.Position().P());
+    // const double rho2 = localNucleus -> Rho(particle2.Position().P());
+    // const double rho = (rho1 + rho2) / 2;
 
-    const auto mom1 = particle1.Momentum();
-    const auto mom2 = particle2.Momentum();
-    const double rho1 = localNucleus -> Rho(particle1.Position().P());
-    const double rho2 = localNucleus -> Rho(particle2.Position().P());
-    const double rho = std::max(rho1, rho2);
+    // const double mass1 = effectiveMass -> GetMass(Constant::mN, mom1.P(), rho1);
+    // const double mass2 = effectiveMass -> GetMass(Constant::mN, mom2.P(), rho2);
+    // const double mass3 = effectiveMass -> GetMass(Constant::mN, sqrt((mom1*mom1+mom2*mom2)/2), rho);
 
-    const double mass1 = effectiveMass -> GetMass(Constant::mN, mom1.P(), rho);
-    const double mass2 = effectiveMass -> GetMass(Constant::mN, mom2.P(), rho);
-    const double mass3 = effectiveMass -> GetMass(Constant::mN, sqrt((mom1*mom1+mom2*mom2)/2), rho);
-
-    double inMediumEffect = std::abs((mom1-mom2).P())/Constant::mN
-                          * pow(std::abs((mom1/mass1-mom2/mass2).P()), -1)
-                          * mass3/Constant::mN; 
-    if(inMediumEffect < min_effect) {
-        std::cout << rho1 << " " << rho2 << " " << mass1 << " " << mass2 << " " << mass3 << " " << inMediumEffect << std::endl;
-        min_effect = inMediumEffect;
-    }
-    return m_interactions -> CrossSection(particle1, particle2)*inMediumEffect;
+    // double inMediumEffect = std::abs((mom1-mom2).P())/Constant::mN
+    //                       * pow(std::abs((mom1/mass1-mom2/mass2).P()), -1)
+    //                       * mass3/Constant::mN; 
+    
+    return m_interactions -> CrossSection(particle1, particle2); //*inMediumEffect;
 }
 
 std::size_t Cascade::Interacted(const Particles& particles, const Particle& kickedParticle,
